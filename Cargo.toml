@@ -1,0 +1,86 @@
+[package]
+name = "gaem"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies.bevy]
+version = "0.8.0"
+default-features = false
+features = [
+    "filesystem_watcher",
+    "animation",
+    "bevy_asset",
+    "bevy_gilrs",
+    "bevy_scene",
+    "bevy_winit",
+    "render",
+    "x11",
+    "wayland",
+    "png",
+    "ktx2",
+    "zstd",
+]
+
+[dependencies.bevy_asset_loader]
+version = "0.12.0"
+features = [
+    "2d",
+    "dynamic_assets",
+    "stageless",
+    "progress_tracking",
+    "progress_tracking_stageless"
+]
+
+[dependencies.bevy_kira_audio]
+version = "0.12.0"
+default-features = false
+features = [
+    "flac",
+]
+
+[dependencies]
+bevy_ecs_tilemap = "0.7.0"
+iyes_loopless = "0.7.1"
+iyes_progress = { version = "0.5.0", features = ["iyes_loopless"] }
+iyes_scene_tools = "0.1.0"
+
+[patch.crates-io]
+bevy = { path = "../bevy" }
+# list of all bevy sub-crates, just to be safe
+bevy_animation = { path = "../bevy/crates/bevy_animation" }
+bevy_app = { path = "../bevy/crates/bevy_app" }
+bevy_asset = { path = "../bevy/crates/bevy_asset" }
+bevy_audio = { path = "../bevy/crates/bevy_audio" }
+bevy_core = { path = "../bevy/crates/bevy_core" }
+bevy_core_pipeline = { path = "../bevy/crates/bevy_core_pipeline" }
+bevy_derive = { path = "../bevy/crates/bevy_derive" }
+bevy_diagnostic = { path = "../bevy/crates/bevy_diagnostic" }
+bevy_dylib = { path = "../bevy/crates/bevy_dylib" }
+bevy_dynamic_plugin = { path = "../bevy/crates/bevy_dynamic_plugin" }
+bevy_ecs = { path = "../bevy/crates/bevy_ecs" }
+bevy_encase_derive = { path = "../bevy/crates/bevy_encase_derive" }
+bevy_gilrs = { path = "../bevy/crates/bevy_gilrs" }
+bevy_gltf = { path = "../bevy/crates/bevy_gltf" }
+bevy_hierarchy = { path = "../bevy/crates/bevy_hierarchy" }
+bevy_input = { path = "../bevy/crates/bevy_input" }
+bevy_internal = { path = "../bevy/crates/bevy_internal" }
+bevy_log = { path = "../bevy/crates/bevy_log" }
+bevy_macro_utils = { path = "../bevy/crates/bevy_macro_utils" }
+bevy_math = { path = "../bevy/crates/bevy_math" }
+bevy_mikktspace = { path = "../bevy/crates/bevy_mikktspace" }
+bevy_ptr = { path = "../bevy/crates/bevy_ptr" }
+bevy_reflect = { path = "../bevy/crates/bevy_reflect" }
+bevy_render = { path = "../bevy/crates/bevy_render" }
+bevy_scene = { path = "../bevy/crates/bevy_scene" }
+bevy_sprite = { path = "../bevy/crates/bevy_sprite" }
+bevy_tasks = { path = "../bevy/crates/bevy_tasks" }
+bevy_text = { path = "../bevy/crates/bevy_text" }
+bevy_time = { path = "../bevy/crates/bevy_time" }
+bevy_transform = { path = "../bevy/crates/bevy_transform" }
+bevy_ui = { path = "../bevy/crates/bevy_ui" }
+bevy_utils = { path = "../bevy/crates/bevy_utils" }
+bevy_window = { path = "../bevy/crates/bevy_window" }
+bevy_winit = { path = "../bevy/crates/bevy_winit" }
+
