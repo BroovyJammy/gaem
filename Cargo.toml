@@ -3,7 +3,8 @@ name = "gaem"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+dynamic = ["bevy/dynamic"]
 
 [dependencies.bevy]
 version = "0.8.0"
@@ -84,3 +85,8 @@ bevy_utils = { path = "../bevy/crates/bevy_utils" }
 bevy_window = { path = "../bevy/crates/bevy_window" }
 bevy_winit = { path = "../bevy/crates/bevy_winit" }
 
+[profile.dev]
+opt-level = 0
+
+[profile.dev.package."*"]
+opt-level = 2
