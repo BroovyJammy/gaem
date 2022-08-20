@@ -76,7 +76,7 @@ pub fn handle_input(
             } else if movement.y < -0.0 {
                 offset.y -= 1;
             }
-            let final_tile = current_selected.as_ivec2() + offset;
+            let final_tile = current_selected.pos.as_ivec2() + offset;
             // FIXME(Boxy) we ought to correctly handle the case where final_tile < 0 and
             // at the same time the case where `.get(..).is_some()` is fales but if we were
             // to go just left/right or up/down then `is_some()` would be true.
@@ -91,7 +91,8 @@ pub fn handle_input(
                 .get(&TilePos::new(final_tile.x, final_tile.y))
                 .is_some()
             {
-                current_selected.0 = final_tile;
+                current_selected.pos = final_tile;
+                current_selected.snap_camera_to = true;
             }
         }
     }
@@ -100,12 +101,17 @@ pub fn handle_input(
 fn camera_to_selected_tile(
     mut set: ParamSet<(Query<&mut Transform, With<Camera>>, Query<&Transform>)>,
     layer_to_map: Res<LayerToMap>,
-    selected_tile: Res<CursorTilePos>,
+    mut selected_tile: ResMut<CursorTilePos>,
 ) {
+    if selected_tile.snap_camera_to == false {
+        return;
+    }
+    selected_tile.snap_camera_to = false;
+
     let map_entity = layer_to_map.0[&Layer::Select];
     let map_trans = *set.p1().get(map_entity).unwrap();
     let selected_tile_pos = map_trans.translation
-        + (selected_tile.0 * UVec2::splat(crate::map::TILE_SIZE))
+        + (selected_tile.pos * UVec2::splat(crate::map::TILE_SIZE))
             .extend(0)
             .as_vec3();
 
