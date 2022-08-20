@@ -1,7 +1,7 @@
 use crate::asset::MapAssets;
 use crate::prelude::*;
 
-use self::tile::{Select, SelectTile, Terrain, TerrainTile, UnitTile};
+use self::tile::{Select, SelectTile, Terrain, TerrainTile};
 
 pub mod tile;
 
@@ -16,7 +16,6 @@ impl Plugin for MapPlugin {
 #[derive(Hash, Eq, Clone, Component, Copy, PartialEq)]
 pub enum Layer {
     Select,
-    Unit,
     Terrain,
 }
 
@@ -29,7 +28,6 @@ pub const MAP_SIZE: u32 = 32;
 pub const TILE_SIZE: u32 = 32;
 // Characters will be at `1.`
 const SELECT_LAYER_Z: f32 = 2.;
-const UNIT_LAYER_Z: f32 = 1.;
 const TERRAIN_LAYER_Z: f32 = 0.;
 // For some reason, this value has to be smaller than expected
 const SELECT_LAYER_ALPHA: f32 = 0.1;
@@ -50,7 +48,7 @@ fn init_map(mut commands: Commands, assets: Res<MapAssets>) {
     };
 
     let mut layer_to_map = LayerToMap(HashMap::new());
-    for layer in [Layer::Select, Layer::Unit, Layer::Terrain] {
+    for layer in [Layer::Select, /* Layer::Unit, */ Layer::Terrain] {
         let map = commands.spawn().id();
         let mut tile_storage = TileStorage::empty(map_size);
 
@@ -66,7 +64,6 @@ fn init_map(mut commands: Commands, assets: Res<MapAssets>) {
                     texture: match layer {
                         Layer::Select => Select::Inactive.into(),
                         // Is sometimes 1, which is the unit
-                        Layer::Unit => TileTexture(((x + y) % 12 == 0) as u32),
                         Layer::Terrain => Terrain::Dirt.into(),
                     },
                     color: TileColor(
@@ -84,9 +81,6 @@ fn init_map(mut commands: Commands, assets: Res<MapAssets>) {
                     Layer::Select => {
                         tile.insert(SelectTile);
                     }
-                    Layer::Unit => {
-                        tile.insert(UnitTile);
-                    }
                     Layer::Terrain => {
                         tile.insert(TerrainTile);
                     }
@@ -103,13 +97,11 @@ fn init_map(mut commands: Commands, assets: Res<MapAssets>) {
             storage: tile_storage,
             texture: TilemapTexture(match layer {
                 Layer::Select => assets.select.clone(),
-                Layer::Unit => assets.unit.clone(),
                 Layer::Terrain => assets.terrain.clone(),
             }),
             tile_size,
             transform: Transform::from_translation(Vec2::ZERO.extend(match layer {
                 Layer::Select => SELECT_LAYER_Z,
-                Layer::Unit => UNIT_LAYER_Z,
                 Layer::Terrain => TERRAIN_LAYER_Z,
             })),
             ..default()

@@ -1,13 +1,10 @@
-use crate::prelude::*;
-
-use crate::map::MAP_SIZE;
-use leafwing_input_manager::user_input::InputKind;
-
-use crate::map::{
-    tile::{Select, SelectTile, UnitTile},
-    TILE_SIZE,
-};
+use crate::asset::MapAssets;
+use crate::gameplay::insect_body::{InsectPart, InsectPartKind, PartDirection};
+use crate::map::tile::{Select, SelectTile};
 use crate::map::{Layer, LayerToMap};
+use crate::map::{MAP_SIZE, TILE_SIZE};
+use crate::{gameplay::insect_body::InsectBody, prelude::*};
+use leafwing_input_manager::user_input::InputKind;
 pub struct GameplayPlugin;
 
 mod insect_body;
@@ -20,16 +17,72 @@ impl Plugin for GameplayPlugin {
                 .run_in_state(AppState::Game)
                 .run_if_resource_exists::<SelectedUnit>(),
         );
+        #[derive(SystemLabel)]
+        struct TempInsertUnits;
+        #[derive(SystemLabel)]
+        struct Thingy;
+
         // Awesome temporary system
-        app.add_system(|mut commands: Commands| {
-            for x in 0..MAP_SIZE {
-                for y in 0..MAP_SIZE {
-                    if (x + y) % 12 == 0 {
-                        commands.spawn().insert(UnitPos(UVec2::new(x, y)));
+        app.add_enter_system(
+            AppState::Game,
+            (|mut commands: Commands, assets: Res<MapAssets>| {
+                for x in 0..MAP_SIZE {
+                    for y in 0..MAP_SIZE {
+                        if (x + y) % 12 == 0 {
+                            let map_size = TilemapSize {
+                                x: MAP_SIZE,
+                                y: MAP_SIZE,
+                            };
+                            let grid_size = TilemapGridSize {
+                                x: TILE_SIZE as f32,
+                                y: TILE_SIZE as f32,
+                            };
+                            let tile_size = TilemapTileSize {
+                                x: TILE_SIZE as f32,
+                                y: TILE_SIZE as f32,
+                            };
+
+                            commands
+                                .spawn()
+                                .insert_bundle(TransformBundle { ..default() })
+                                .insert(UnitPos(UVec2::new(x, y)))
+                                .insert(InsectBody {
+                                    parts: Box::new([InsectPart {
+                                        kind: InsectPartKind::Flesh,
+                                        position: (0, 0),
+                                        rotation: PartDirection::Up,
+                                    }]),
+                                    used_tiles: std::collections::HashSet::from([(0, 0)]),
+                                })
+                                .insert_bundle(TilemapBundle {
+                                    grid_size,
+                                    size: map_size,
+                                    storage: TileStorage::empty(map_size),
+                                    texture: TilemapTexture(assets.insect.clone()),
+                                    tile_size,
+                                    transform: Transform::from_translation(Vec3::new(
+                                        0.0, 0.0, 0.0,
+                                    )),
+                                    ..default()
+                                });
+                        }
                     }
                 }
-            }
-        });
+            })
+            .label(TempInsertUnits),
+        )
+        .add_system(
+            insect_body::update_insect_body_tilemap
+                .run_in_state(AppState::Game)
+                .after(TempInsertUnits)
+                .label(Thingy),
+        )
+        .add_system(
+            sync_unit_pos_with_transform
+                .run_in_state(AppState::Game)
+                .after(TempInsertUnits)
+                .before(Thingy),
+        );
         app.add_event::<ReselectTile>()
             .add_system(
                 handle_input
@@ -99,31 +152,23 @@ fn select_unit(
 fn move_unit(
     mut commands: Commands,
     mut selecteds: EventReader<TileSelected>,
-    units: Query<&UnitPos>,
+    mut units: Query<&mut UnitPos>,
     selected_unit: Res<SelectedUnit>,
-    tile_storages: Query<&TileStorage>,
-    mut tiles: Query<&mut TileTexture, With<UnitTile>>,
-    layer_to_map: Res<LayerToMap>,
 ) {
     if let Some(selected) = selecteds.iter().last() {
         if !units.iter().any(|unit_pos| **unit_pos == **selected) {
-            let move_unit_from = units.get(**selected_unit).unwrap().0;
+            let mut move_unit_from = units.get_mut(**selected_unit).unwrap();
             let move_unit_to = selected.0;
-            let tile_storage = tile_storages
-                .get(*layer_to_map.get(&Layer::Unit).unwrap())
-                .unwrap();
-
-            // Let's just assume the gameplay end knows the units aren't off the board
-            let from = tile_storage.get(&move_unit_from.into()).unwrap();
-            let to = tile_storage.get(&move_unit_to.into()).unwrap();
-
-            // Ah, a good old fashioned swap. No `mem::swap` today.
-            let temp = *tiles.get(from).unwrap();
-            *tiles.get_mut(from).unwrap() = *tiles.get(to).unwrap();
-            *tiles.get_mut(to).unwrap() = temp;
-
+            move_unit_from.0 = move_unit_to;
             commands.remove_resource::<SelectedUnit>();
         }
+    }
+}
+
+fn sync_unit_pos_with_transform(mut unit_transform: Query<(&UnitPos, &mut Transform)>) {
+    for (unit_pos, mut trans) in unit_transform.iter_mut() {
+        trans.translation =
+            (Vec2::new(unit_pos.x as f32, unit_pos.y as f32) * TILE_SIZE as f32).extend(1.0);
     }
 }
 
@@ -205,7 +250,7 @@ fn camera_to_selected_tile(
     let map_entity = layer_to_map.0[&Layer::Select];
     let map_trans = *set.p1().get(map_entity).unwrap();
     let selected_tile_pos = map_trans.translation
-        + (selected_tile.pos * UVec2::splat(crate::map::TILE_SIZE))
+        + (selected_tile.pos * UVec2::splat(TILE_SIZE))
             .extend(0)
             .as_vec3();
 
