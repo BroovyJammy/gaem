@@ -1,30 +1,22 @@
-mod asset;
-pub mod select;
-pub mod tile;
-
-use std::collections::HashMap;
-
-use bevy::prelude::*;
-use bevy_ecs_tilemap::prelude::*;
-use iyes_loopless::prelude::AppLooplessStateExt;
-
-use crate::state::GameState;
+use crate::prelude::*;
+use crate::asset::MapAssets;
 
 pub use self::select::TileSelected;
 use self::{
-    asset::{MapAssetPlugin, MapAssets},
     select::SelectPlugin,
     tile::{Select, SelectTile, Terrain, TerrainTile, UnitTile},
 };
+
+pub mod select;
+pub mod tile;
 
 pub struct MapPlugin;
 
 impl Plugin for MapPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(TilemapPlugin)
-            .add_plugin(MapAssetPlugin)
-            .add_plugin(SelectPlugin)
-            .add_enter_system(GameState::Game, init_map);
+        app.add_plugin(SelectPlugin);
+
+        app.add_enter_system(AppState::Game, init_map);
     }
 }
 

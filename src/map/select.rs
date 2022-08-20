@@ -1,9 +1,5 @@
-use bevy::prelude::*;
-use bevy_ecs_tilemap::prelude::*;
-use iyes_loopless::prelude::IntoConditionalSystem;
-use leafwing_input_manager::prelude::*;
-
-use crate::{gameplay::MoveUnit, input::Action, state::GameState};
+use crate::prelude::*;
+use crate::{gameplay::MoveUnit, input::Action};
 
 use super::{
     tile::{Select, SelectTile, UnitTile},
@@ -21,21 +17,22 @@ impl Plugin for SelectPlugin {
         .add_event::<TileSelected>()
         .add_system(
             update_cursor_pos
-                .run_in_state(GameState::Game)
+                .run_in_state(AppState::Game)
+                .after(crate::input::InputHandlingSystem)
                 .label("update_cursor_pos"),
         )
         .add_system(
             highlight_hovered_tile
-                .run_in_state(GameState::Game)
+                .run_in_state(AppState::Game)
                 .after("update_cursor_pos"),
         )
         .add_system(
             select_tile
-                .run_in_state(GameState::Game)
+                .run_in_state(AppState::Game)
                 .after("update_cursor_pos"),
         )
         // TODO? eliminate 1-frame lag
-        .add_system(move_unit.run_in_state(GameState::Game));
+        .add_system(move_unit.run_in_state(AppState::Game));
     }
 }
 

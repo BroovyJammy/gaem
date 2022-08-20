@@ -25,7 +25,7 @@ features = [
 ]
 
 [dependencies.bevy_asset_loader]
-version = "0.12.0"
+version = "0.12.1"
 features = [
     "2d",
     "dynamic_assets",
@@ -40,11 +40,14 @@ default-features = false
 features = ["flac"]
 
 [dependencies]
-leafwing-input-manager = "0.5"
+leafwing-input-manager = "0.5.0"
 bevy_ecs_tilemap = "0.7.0"
 iyes_loopless = "0.7.1"
 iyes_progress = { version = "0.5.0", features = ["iyes_loopless"] }
 iyes_scene_tools = "0.1.0"
+bevy_tweening = "0.5.0"
+bevy_common_assets = { version  = "0.3.0", features = ["ron", "toml"] }
+bevy_prototype_debug_lines = "0.8.1"
 
 [patch.crates-io]
 bevy = { path = "../bevy" }
@@ -52,13 +55,11 @@ bevy = { path = "../bevy" }
 bevy_animation = { path = "../bevy/crates/bevy_animation" }
 bevy_app = { path = "../bevy/crates/bevy_app" }
 bevy_asset = { path = "../bevy/crates/bevy_asset" }
-bevy_audio = { path = "../bevy/crates/bevy_audio" }
 bevy_core = { path = "../bevy/crates/bevy_core" }
 bevy_core_pipeline = { path = "../bevy/crates/bevy_core_pipeline" }
 bevy_derive = { path = "../bevy/crates/bevy_derive" }
 bevy_diagnostic = { path = "../bevy/crates/bevy_diagnostic" }
 bevy_dylib = { path = "../bevy/crates/bevy_dylib" }
-bevy_dynamic_plugin = { path = "../bevy/crates/bevy_dynamic_plugin" }
 bevy_ecs = { path = "../bevy/crates/bevy_ecs" }
 bevy_encase_derive = { path = "../bevy/crates/bevy_encase_derive" }
 bevy_gilrs = { path = "../bevy/crates/bevy_gilrs" }
@@ -84,8 +85,17 @@ bevy_utils = { path = "../bevy/crates/bevy_utils" }
 bevy_window = { path = "../bevy/crates/bevy_window" }
 bevy_winit = { path = "../bevy/crates/bevy_winit" }
 
-[profile.dev]
-opt-level = 0
-
+# dev: Enable max optimizations for dependencies, but not for our code
 [profile.dev.package."*"]
 opt-level = 2
+# dev: no LTO, lots of codegen units for parallelism during compilation
+[profile.dev]
+opt-level = 0
+lto = false
+codegen-units = 16
+# release: Enable LTO and limit codegen units for better codegen
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true

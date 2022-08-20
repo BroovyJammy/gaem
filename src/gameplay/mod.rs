@@ -1,32 +1,30 @@
-use bevy::prelude::*;
-use iyes_loopless::prelude::*;
+use crate::prelude::*;
 
 use crate::{
     map::{TileSelected, MAP_SIZE},
-    state::GameState,
 };
 
 pub struct GameplayPlugin;
 
 impl Plugin for GameplayPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<MoveUnit>()
-            .add_system(select_unit.run_in_state(GameState::Game))
-            .add_system(
-                move_unit
-                    .run_in_state(GameState::Game)
-                    .run_if_resource_exists::<SelectedUnit>(),
-            )
-            // Awesome temporary system
-            .add_system(|mut commands: Commands| {
-                for x in 0..MAP_SIZE {
-                    for y in 0..MAP_SIZE {
-                        if (x + y) % 12 == 0 {
-                            commands.spawn().insert(UnitPos(UVec2::new(x, y)));
-                        }
+        app.add_event::<MoveUnit>();
+        app.add_system(select_unit.run_in_state(AppState::Game));
+        app.add_system(
+            move_unit
+                .run_in_state(AppState::Game)
+                .run_if_resource_exists::<SelectedUnit>(),
+        );
+        // Awesome temporary system
+        app.add_system(|mut commands: Commands| {
+            for x in 0..MAP_SIZE {
+                for y in 0..MAP_SIZE {
+                    if (x + y) % 12 == 0 {
+                        commands.spawn().insert(UnitPos(UVec2::new(x, y)));
                     }
                 }
-            });
+            }
+        });
     }
 }
 

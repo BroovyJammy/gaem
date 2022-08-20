@@ -6,12 +6,7 @@ pub struct UiPlugin;
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(WindowDescriptor {
-            // Extremely permanent /s
-            title: "an gay video gam e".into(),
-            ..default()
-        })
-        .add_startup_system(main_menu);
+        app.add_startup_system(main_menu);
     }
 }
 

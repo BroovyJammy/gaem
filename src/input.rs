@@ -1,6 +1,5 @@
-use bevy::prelude::*;
-use bevy_ecs_tilemap::prelude::*;
-use leafwing_input_manager::{prelude::*, user_input::InputKind};
+use crate::prelude::*;
+use leafwing_input_manager::user_input::InputKind;
 
 use crate::map::{select::CursorTilePos, Layer, LayerToMap};
 
@@ -13,13 +12,22 @@ pub enum Action {
 #[derive(Component, Copy, Clone)]
 pub struct Player;
 
+#[derive(SystemLabel)]
+pub struct InputHandlingSystem;
+
 pub struct InputPlugin;
 impl Plugin for InputPlugin {
     fn build(&self, app: &mut App) {
-        // FIXME(Boxy) this should only run when in `GameState::Game` but i have no idea how
-        // iyes_loopless works.
-        app.add_system(handle_input.before(crate::map::select::highlight_hovered_tile))
-            .add_system(camera_to_selected_tile.after(handle_input));
+        app.add_system(
+            handle_input
+                .run_in_state(AppState::Game)
+                .label(InputHandlingSystem)
+        );
+        app.add_system(
+            camera_to_selected_tile
+                .run_in_state(AppState::Game)
+                .after(InputHandlingSystem)
+        );
     }
 }
 

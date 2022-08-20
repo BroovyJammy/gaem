@@ -1,28 +1,108 @@
 #![allow(clippy::type_complexity)]
 
+mod prelude {
+    pub use bevy::prelude::*;
+    pub use bevy::utils::{HashMap, HashSet};
+    pub use iyes_loopless::prelude::*;
+    pub use iyes_progress::prelude::*;
+    pub use iyes_scene_tools::SceneBuilder;
+    pub use bevy_ecs_tilemap::prelude::*;
+    pub use bevy_kira_audio::prelude::*;
+    pub use bevy_tweening::*;
+    pub use leafwing_input_manager::prelude::*;
+
+    pub use std::time::{Duration, Instant};
+
+    pub use crate::AppState;
+}
+
+mod asset;
 mod gameplay;
 mod input;
 mod map;
-pub mod state;
 mod ui;
 
-use bevy::prelude::*;
-use gameplay::GameplayPlugin;
-use leafwing_input_manager::prelude::InputManagerPlugin;
-use map::MapPlugin;
-use state::StatePlugin;
-use ui::UiPlugin;
+use crate::prelude::*;
+
+// Feel free to move this
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum AppState {
+    AssetsLoading,
+    Game,
+}
 
 fn main() {
-    App::new()
-        .add_plugin(InputManagerPlugin::<input::Action>::default())
-        .add_plugin(input::InputPlugin)
-        // Ordered before, bc it adds `GameState`
-        .add_plugin(StatePlugin)
-        // Ordered before, bc it contains `WindowDescriptor`
-        .add_plugin(UiPlugin)
-        .add_plugins(DefaultPlugins)
-        .add_plugin(GameplayPlugin)
-        .add_plugin(MapPlugin)
-        .run();
+    let mut app = App::new();
+
+    // general configuration
+    app.insert_resource(WindowDescriptor {
+        title: "BroovyJammy GAEM™ [PRE-ALPHA]".into(),
+        present_mode: bevy::window::PresentMode::Fifo,
+        resizable: true,
+        width: 800.0,
+        height: 600.0,
+        resize_constraints: bevy::window::WindowResizeConstraints {
+            min_width: 800.0,
+            min_height: 600.0,
+            ..Default::default()
+        },
+        ..Default::default()
+    });
+    #[cfg(debug_assertions)]
+    app.insert_resource(bevy::log::LogSettings {
+        filter: "info,wgpu_core=warn,wgpu_hal=warn,gaem=trace".into(),
+        level: bevy::log::Level::TRACE,
+    });
+    #[cfg(not(debug_assertions))]
+    app.insert_resource(bevy::log::LogSettings {
+        filter: "info,wgpu_core=warn,wgpu_hal=warn,gaem=info".into(),
+        level: bevy::log::Level::INFO,
+    });
+
+    // bevy
+    app.add_plugins(DefaultPlugins);
+
+    // our global things
+    app.add_loopless_state(AppState::AssetsLoading);
+
+    // external plugins
+    app.add_plugin(
+        ProgressPlugin::new(AppState::AssetsLoading)
+            .continue_to(AppState::Game)
+    );
+    app.add_plugin(TilemapPlugin);
+    app.add_plugin(InputManagerPlugin::<input::Action>::default());
+
+    // our plugins
+    app.add_plugin(asset::AssetsPlugin);
+    app.add_plugin(input::InputPlugin);
+    app.add_plugin(ui::UiPlugin);
+    app.add_plugin(gameplay::GameplayPlugin);
+    app.add_plugin(map::MapPlugin);
+
+    // some debug diagnostics stuff
+    #[cfg(debug_assertions)]
+    {
+        app.add_system(debug_state.exclusive_system().at_start());
+        app.add_system(debug_nextstate.exclusive_system().at_end());
+    }
+
+    // let's gooo
+    app.run();
+}
+
+fn debug_state(
+    current: Res<CurrentState<AppState>>,
+) {
+    if current.is_changed() {
+        debug!("State Changed! {:?}", *current);
+    }
+}
+
+fn debug_nextstate(
+    next: Option<Res<NextState<AppState>>>,
+) {
+    if let Some(next) = next {
+        debug!("Queued state transition! {:?}", *next);
+    }
 }

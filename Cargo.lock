@@ -4,9 +4,9 @@ version = 3
 
 [[package]]
 name = "ab_glyph"
-version = "0.2.15"
+version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24606928a235e73cdef55a0c909719cadd72fce573e5713d58cb2952d8f5794c"
+checksum = "846ffacb9d0c8b879ef9e565b59e18fb76d6a61013e5bd24ecc659864e6b1a1f"
 dependencies = [
  "ab_glyph_rasterizer",
  "owned_ttf_parser",
@@ -252,24 +252,24 @@ dependencies = [
 
 [[package]]
 name = "bevy_asset_loader"
-version = "0.12.0"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8853e2a0ed7e1b6e3343b619fa51ab7a467aa8d9de84013d150cef1bfaf75822"
+checksum = "91275716531c98d9907ee8c57854d11e3688780a9cefc66b1d4da601a3e3c41e"
 dependencies = [
  "anyhow",
  "bevy",
  "bevy_asset_loader_derive",
  "bevy_common_assets",
  "iyes_loopless",
- "iyes_progress 0.4.0",
+ "iyes_progress",
  "serde",
 ]
 
 [[package]]
 name = "bevy_asset_loader_derive"
-version = "0.12.0"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d006471ea56d76d357ce997fa882b87a612b22d1513099c279fb7b55201b641a"
+checksum = "e721755806423f711c0934295872808adb20d379b3073c679ed544960fc84b6d"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -286,6 +286,7 @@ dependencies = [
  "bevy",
  "ron",
  "serde",
+ "toml",
 ]
 
 [[package]]
@@ -555,6 +556,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_prototype_debug_lines"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e272fe1736bff610fc80982d31b437eb75dc7d7e087fdd470ddcbeb9bdfa8a0"
+dependencies = [
+ "bevy",
+]
+
+[[package]]
 name = "bevy_ptr"
 version = "0.8.0"
 
@@ -737,6 +747,16 @@ dependencies = [
  "bevy_hierarchy",
  "bevy_math",
  "bevy_reflect",
+]
+
+[[package]]
+name = "bevy_tweening"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "164bcb41708fa1aeb435b6bba6cae61777b9f8cf3e18b207bb6209ca5b970e77"
+dependencies = [
+ "bevy",
+ "interpolation",
 ]
 
 [[package]]
@@ -1479,10 +1499,13 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bevy_asset_loader",
+ "bevy_common_assets",
  "bevy_ecs_tilemap",
  "bevy_kira_audio",
+ "bevy_prototype_debug_lines",
+ "bevy_tweening",
  "iyes_loopless",
- "iyes_progress 0.5.0",
+ "iyes_progress",
  "iyes_scene_tools",
  "leafwing-input-manager",
 ]
@@ -1793,6 +1816,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "interpolation"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3b7357d2bbc5ee92f8e899ab645233e43d21407573cceb37fed8bc3dede2c02"
+
+[[package]]
 name = "io-kit-sys"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1827,17 +1856,6 @@ dependencies = [
  "bevy_ecs",
  "bevy_time",
  "bevy_utils",
-]
-
-[[package]]
-name = "iyes_progress"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea23536de552cb416c121b61fa68d692748c7af2ce73301c4c61898db0966f79"
-dependencies = [
- "bevy_app",
- "bevy_ecs",
- "iyes_loopless",
 ]
 
 [[package]]
@@ -3527,11 +3545,3 @@ name = "xml-rs"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2d7d3948613f75c98fd9328cfdcc45acc4d360655289d0a7d4ec931392200a3"
-
-[[patch.unused]]
-name = "bevy_audio"
-version = "0.8.0"
-
-[[patch.unused]]
-name = "bevy_dynamic_plugin"
-version = "0.8.0"
