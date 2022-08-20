@@ -10,12 +10,14 @@ impl Plugin for MapAssetPlugin {
 
 pub struct MapAssets {
     pub select: Handle<Image>,
+    pub unit: Handle<Image>,
     pub terrain: Handle<Image>,
 }
 
 fn load_assets(mut commands: Commands, assets: Res<AssetServer>) {
     commands.insert_resource(MapAssets {
         select: assets.load("image/tile/select.png"),
+        unit: assets.load("image/tile/unit.png"),
         terrain: assets.load("image/tile/terrain.png"),
     });
 }

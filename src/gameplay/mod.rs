@@ -1,22 +1,30 @@
 use bevy::prelude::*;
 use iyes_loopless::prelude::*;
 
-use crate::{map::TileSelected, state::GameState};
+use crate::{
+    map::{TileSelected, MAP_SIZE},
+    state::GameState,
+};
 
 pub struct GameplayPlugin;
 
 impl Plugin for GameplayPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(select_unit.run_in_state(GameState::Game))
+        app.add_event::<MoveUnit>()
+            .add_system(select_unit.run_in_state(GameState::Game))
             .add_system(
                 move_unit
                     .run_in_state(GameState::Game)
                     .run_if_resource_exists::<SelectedUnit>(),
             )
             // Awesome temporary system
-            .add_system(|mut e: EventReader<MoveUnit>| {
-                for e in e.iter() {
-                    info!("{e:?}");
+            .add_system(|mut commands: Commands| {
+                for x in 0..MAP_SIZE {
+                    for y in 0..MAP_SIZE {
+                        if (x + y) % 12 == 0 {
+                            commands.spawn().insert(UnitPos(UVec2::new(x, y)));
+                        }
+                    }
                 }
             });
     }
@@ -32,8 +40,8 @@ struct UnitPos(UVec2);
 // Event to the tilemap
 #[derive(Debug)]
 pub struct MoveUnit {
-    from: UVec2,
-    to: UVec2,
+    pub from: UVec2,
+    pub to: UVec2,
 }
 
 fn select_unit(

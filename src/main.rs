@@ -7,6 +7,7 @@ pub mod state;
 mod ui;
 
 use bevy::prelude::*;
+use gameplay::GameplayPlugin;
 use leafwing_input_manager::prelude::InputManagerPlugin;
 use map::MapPlugin;
 use state::StatePlugin;
@@ -21,6 +22,7 @@ fn main() {
         // Ordered before, bc it contains `WindowDescriptor`
         .add_plugin(UiPlugin)
         .add_plugins(DefaultPlugins)
+        .add_plugin(GameplayPlugin)
         .add_plugin(MapPlugin)
         .run();
 }
