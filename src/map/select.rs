@@ -1,3 +1,4 @@
+use crate::input::ReselectTile;
 use crate::prelude::*;
 use crate::{gameplay::MoveUnit, input::Action};
 
@@ -53,27 +54,32 @@ pub struct TileSelected(UVec2);
 fn update_cursor_pos(
     cameras: Query<&Transform, With<Camera2d>>,
     mut cursor_movement: EventReader<CursorMoved>,
+    mut reselect_tile: EventReader<ReselectTile>,
     windows: Res<Windows>,
     mut cursor: ResMut<CursorTilePos>,
 ) {
     let window = windows.get_primary().unwrap();
-    match cursor_movement.iter().find(|event| event.id == window.id()) {
-        Some(_) => (),
-        None => return,
-    };
+    let position = match match cursor_movement.iter().find(|event| event.id == window.id()) {
+        Some(_) => window.cursor_position(),
+        None => None,
+    } {
+        Some(a) => Some(a),
+        None => match reselect_tile.iter().next() {
+            Some(_) => Some(Vec2::new(window.width(), window.height()) / 2.),
+            None => return,
+        },
+    }
+    .unwrap();
+    let new_pos = cameras.get_single().ok().and_then(|camera_transform| {
+        let new_pos = (camera_transform.compute_matrix()
+            * (position - Vec2::new(window.width(), window.height()) / 2.)
+                .extend(0.)
+                .extend(1.))
+        .truncate()
+        .truncate()
+            / TILE_SIZE as f32;
 
-    let new_pos = window.cursor_position().and_then(|cursor_pos| {
-        cameras.get_single().ok().and_then(|camera_transform| {
-            let new_pos = (camera_transform.compute_matrix()
-                * (cursor_pos - Vec2::new(window.width(), window.height()) / 2.)
-                    .extend(0.)
-                    .extend(1.))
-            .truncate()
-            .truncate()
-                / TILE_SIZE as f32;
-
-            (new_pos.cmpge(Vec2::ZERO).all()).then(|| new_pos.as_uvec2())
-        })
+        (new_pos.cmpge(Vec2::ZERO).all()).then(|| new_pos.as_uvec2())
     });
     if let Some(new_pos) = new_pos {
         cursor.pos = new_pos;
