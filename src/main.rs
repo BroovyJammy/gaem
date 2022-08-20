@@ -3,12 +3,12 @@
 mod prelude {
     pub use bevy::prelude::*;
     pub use bevy::utils::{HashMap, HashSet};
-    pub use iyes_loopless::prelude::*;
-    pub use iyes_progress::prelude::*;
-    pub use iyes_scene_tools::SceneBuilder;
     pub use bevy_ecs_tilemap::prelude::*;
     pub use bevy_kira_audio::prelude::*;
     pub use bevy_tweening::*;
+    pub use iyes_loopless::prelude::*;
+    pub use iyes_progress::prelude::*;
+    pub use iyes_scene_tools::SceneBuilder;
     pub use leafwing_input_manager::prelude::*;
 
     pub use std::time::{Duration, Instant};
@@ -18,7 +18,6 @@ mod prelude {
 
 mod asset;
 mod gameplay;
-mod input;
 mod map;
 mod ui;
 
@@ -66,15 +65,12 @@ fn main() {
     app.add_loopless_state(AppState::AssetsLoading);
 
     // external plugins
-    app.add_plugin(
-        ProgressPlugin::new(AppState::AssetsLoading)
-    );
+    app.add_plugin(ProgressPlugin::new(AppState::AssetsLoading));
     app.add_plugin(TilemapPlugin);
-    app.add_plugin(InputManagerPlugin::<input::Action>::default());
+    app.add_plugin(InputManagerPlugin::<gameplay::Action>::default());
 
     // our plugins
     app.add_plugin(asset::AssetsPlugin);
-    app.add_plugin(input::InputPlugin);
     app.add_plugin(ui::UiPlugin);
     app.add_plugin(gameplay::GameplayPlugin);
     app.add_plugin(map::MapPlugin);
@@ -90,17 +86,13 @@ fn main() {
     app.run();
 }
 
-fn debug_state(
-    current: Res<CurrentState<AppState>>,
-) {
+fn debug_state(current: Res<CurrentState<AppState>>) {
     if current.is_changed() {
         debug!("State Changed! {:?}", *current);
     }
 }
 
-fn debug_nextstate(
-    next: Option<Res<NextState<AppState>>>,
-) {
+fn debug_nextstate(next: Option<Res<NextState<AppState>>>) {
     if let Some(next) = next {
         debug!("Queued state transition! {:?}", *next);
     }
