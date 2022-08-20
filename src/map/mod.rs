@@ -1,6 +1,8 @@
 mod asset;
-mod select;
-mod tile;
+pub mod select;
+pub mod tile;
+
+use std::collections::HashMap;
 
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
@@ -26,15 +28,18 @@ impl Plugin for MapPlugin {
     }
 }
 
-enum Layer {
+#[derive(Hash, Eq, Clone, Copy, PartialEq)]
+pub enum Layer {
     Terrain,
     Select,
 }
 
+pub struct LayerToMap(pub HashMap<Layer, Entity>);
+
 // In tiles
 const MAP_SIZE: u32 = 32;
 // In pixels
-const TILE_SIZE: u32 = 32;
+pub const TILE_SIZE: u32 = 32;
 // Characters will be at `1.`
 const SELECT_LAYER_Z: f32 = 2.;
 const TERRAIN_LAYER_Z: f32 = 0.;
@@ -56,6 +61,7 @@ fn init_map(mut commands: Commands, assets: Res<MapAssets>) {
         y: tile_size.y,
     };
 
+    let mut layer_to_map = LayerToMap(HashMap::new());
     for layer in [Layer::Select, Layer::Terrain] {
         let map = commands.spawn().id();
         let mut tile_storage = TileStorage::empty(map_size);
@@ -112,5 +118,7 @@ fn init_map(mut commands: Commands, assets: Res<MapAssets>) {
             })),
             ..default()
         });
+        layer_to_map.0.insert(layer, map);
     }
+    commands.insert_resource(layer_to_map);
 }
