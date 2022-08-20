@@ -1,3 +1,4 @@
+mod gameplay;
 mod input;
 mod map;
 pub mod state;

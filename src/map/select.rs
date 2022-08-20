@@ -39,6 +39,7 @@ impl Plugin for SelectPlugin {
 #[derive(Default, Deref, DerefMut)]
 pub struct CursorTilePos(Option<UVec2>);
 
+// Event that talks to the gameplay part
 #[derive(Deref)]
 pub struct TileSelected(UVec2);
 

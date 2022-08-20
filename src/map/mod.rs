@@ -8,6 +8,7 @@ use iyes_loopless::prelude::AppLooplessStateExt;
 
 use crate::state::GameState;
 
+pub use self::select::TileSelected;
 use self::{
     asset::{MapAssetPlugin, MapAssets},
     select::SelectPlugin,
