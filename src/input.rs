@@ -9,6 +9,8 @@ pub enum Action {
     Select,
 }
 
+pub struct ReselectTile;
+
 #[derive(Component, Copy, Clone)]
 pub struct Player;
 
@@ -18,15 +20,16 @@ pub struct InputHandlingSystem;
 pub struct InputPlugin;
 impl Plugin for InputPlugin {
     fn build(&self, app: &mut App) {
+        app.add_event::<ReselectTile>();
         app.add_system(
             handle_input
                 .run_in_state(AppState::Game)
-                .label(InputHandlingSystem)
+                .label(InputHandlingSystem),
         );
         app.add_system(
             camera_to_selected_tile
                 .run_in_state(AppState::Game)
-                .after(InputHandlingSystem)
+                .after(InputHandlingSystem),
         );
     }
 }
@@ -63,51 +66,21 @@ pub fn make_action_manager() -> InputManagerBundle<Action> {
 }
 
 pub fn handle_input(
+    mut camera: Query<&mut Transform, With<Camera>>,
     mut actioners: Query<&ActionState<Action>>,
-    tilemaps: Query<&TileStorage>,
-    layer_to_map: Res<LayerToMap>,
-    mut current_selected: ResMut<CursorTilePos>,
+    mut writer: EventWriter<ReselectTile>,
 ) {
-    let actioner_state = actioners.get_single_mut().unwrap();
+    const CAM_SPEED: f32 = 4.0;
 
-    // select an adjacent tile if applicable
-    if actioner_state.just_pressed(Action::MoveSelection) {
+    let actioner_state = actioners.get_single_mut().unwrap();
+    if actioner_state.pressed(Action::MoveSelection) {
         let movement = actioner_state
             .clamped_axis_pair(Action::MoveSelection)
             .unwrap() // no idea when this is None :shrug:
             .xy();
-
-        if movement.length() >= 0.01 {
-            let mut offset = IVec2::new(0, 0);
-            if movement.x > 0.0 {
-                offset.x += 1;
-            } else if movement.x < 0.0 {
-                offset.x -= 1;
-            };
-            if movement.y > 0.0 {
-                offset.y += 1;
-            } else if movement.y < -0.0 {
-                offset.y -= 1;
-            }
-            let final_tile = current_selected.pos.as_ivec2() + offset;
-            // FIXME(Boxy) we ought to correctly handle the case where final_tile < 0 and
-            // at the same time the case where `.get(..).is_some()` is fales but if we were
-            // to go just left/right or up/down then `is_some()` would be true.
-            assert!(final_tile.x >= 0);
-            assert!(final_tile.y >= 0);
-            let final_tile = final_tile.as_uvec2();
-
-            let tileset_entity = layer_to_map.0[&Layer::Select];
-            if tilemaps
-                .get(tileset_entity)
-                .unwrap()
-                .get(&TilePos::new(final_tile.x, final_tile.y))
-                .is_some()
-            {
-                current_selected.pos = final_tile;
-                current_selected.snap_camera_to = true;
-            }
-        }
+        let mut camera_trans = camera.get_single_mut().unwrap();
+        camera_trans.translation += movement.extend(0.0) * CAM_SPEED;
+        writer.send(ReselectTile);
     }
 }
 
