@@ -2,6 +2,7 @@ mod asset;
 
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
+use iyes_loopless::prelude::AppLooplessStateExt;
 
 use crate::state::GameState;
 
@@ -13,7 +14,7 @@ impl Plugin for MapPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(TilemapPlugin)
             .add_plugin(MapAssetPlugin)
-            .add_system_set(SystemSet::on_enter(GameState::Game).with_system(init_map));
+            .add_enter_system(GameState::Game, init_map);
     }
 }
 
