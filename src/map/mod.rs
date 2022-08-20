@@ -1,4 +1,5 @@
 mod asset;
+mod select;
 mod tile;
 
 use bevy::prelude::*;
@@ -9,7 +10,8 @@ use crate::state::GameState;
 
 use self::{
     asset::{MapAssetPlugin, MapAssets},
-    tile::{Select, Terrain},
+    select::SelectPlugin,
+    tile::{Select, SelectTile, Terrain, TerrainTile},
 };
 
 pub struct MapPlugin;
@@ -18,8 +20,14 @@ impl Plugin for MapPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(TilemapPlugin)
             .add_plugin(MapAssetPlugin)
+            .add_plugin(SelectPlugin)
             .add_enter_system(GameState::Game, init_map);
     }
+}
+
+enum Layer {
+    Terrain,
+    Select,
 }
 
 // In tiles
@@ -47,20 +55,7 @@ fn init_map(mut commands: Commands, assets: Res<MapAssets>) {
         y: tile_size.y,
     };
 
-    for (tile_texture, z, layer_image, alpha) in [
-        (
-            Select::default().into(),
-            SELECT_LAYER_Z,
-            assets.select.clone(),
-            SELECT_LAYER_ALPHA,
-        ),
-        (
-            Terrain::Dirt.into(),
-            TERRAIN_LAYER_Z,
-            assets.terrain.clone(),
-            1.,
-        ),
-    ] {
+    for layer in [Layer::Select, Layer::Terrain] {
         let map = commands.spawn().id();
         let mut tile_storage = TileStorage::empty(map_size);
 
@@ -69,21 +64,35 @@ fn init_map(mut commands: Commands, assets: Res<MapAssets>) {
             for y in 0..MAP_SIZE {
                 let tile_pos = UVec2::new(x, y).into();
 
-                // Ime it's really messy for empty tiles to not have entities
-                tile_storage.set(
-                    &tile_pos,
-                    Some(
-                        commands
-                            .spawn_bundle(TileBundle {
-                                position: tile_pos,
-                                tilemap_id: TilemapId(map),
-                                texture: tile_texture,
-                                color: TileColor(Vec3::ONE.extend(alpha).into()),
-                                ..default()
+                let mut tile = commands.spawn_bundle(TileBundle {
+                    position: tile_pos,
+                    tilemap_id: TilemapId(map),
+                    texture: match layer {
+                        Layer::Select => Select::Inactive.into(),
+                        Layer::Terrain => Terrain::Dirt.into(),
+                    },
+                    color: TileColor(
+                        Vec3::ONE
+                            .extend(match layer {
+                                Layer::Select => SELECT_LAYER_ALPHA,
+                                _ => 1.,
                             })
-                            .id(),
+                            .into(),
                     ),
-                );
+                    ..default()
+                });
+
+                match layer {
+                    Layer::Select => {
+                        tile.insert(SelectTile);
+                    }
+                    Layer::Terrain => {
+                        tile.insert(TerrainTile);
+                    }
+                }
+
+                // Ime it's really messy for empty tiles to not have entities
+                tile_storage.set(&tile_pos, Some(tile.id()));
             }
         }
 
@@ -91,9 +100,15 @@ fn init_map(mut commands: Commands, assets: Res<MapAssets>) {
             grid_size,
             size: map_size,
             storage: tile_storage,
-            texture: TilemapTexture(layer_image),
+            texture: TilemapTexture(match layer {
+                Layer::Select => assets.select.clone(),
+                Layer::Terrain => assets.terrain.clone(),
+            }),
             tile_size,
-            transform: Transform::from_translation(Vec2::ZERO.extend(z)),
+            transform: Transform::from_translation(Vec2::ZERO.extend(match layer {
+                Layer::Select => SELECT_LAYER_Z,
+                Layer::Terrain => TERRAIN_LAYER_Z,
+            })),
             ..default()
         });
     }
