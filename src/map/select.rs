@@ -102,8 +102,6 @@ fn select_tile(
     cursor_pos: Res<CursorTilePos>,
 ) {
     if actioners.single().just_pressed(Action::Select) {
-        if let Some(pos) = **cursor_pos {
-            selecteds.send(TileSelected(pos));
-        }
+        selecteds.send(TileSelected(cursor_pos.pos));
     }
 }

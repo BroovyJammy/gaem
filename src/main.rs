@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 mod gameplay;
 mod input;
 mod map;

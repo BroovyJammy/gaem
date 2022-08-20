@@ -108,7 +108,7 @@ fn camera_to_selected_tile(
     layer_to_map: Res<LayerToMap>,
     mut selected_tile: ResMut<CursorTilePos>,
 ) {
-    if selected_tile.snap_camera_to == false {
+    if !selected_tile.snap_camera_to {
         return;
     }
     selected_tile.snap_camera_to = false;
