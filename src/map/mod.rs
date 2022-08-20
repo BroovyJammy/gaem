@@ -1,21 +1,14 @@
-use crate::prelude::*;
 use crate::asset::MapAssets;
+use crate::prelude::*;
 
-pub use self::select::TileSelected;
-use self::{
-    select::SelectPlugin,
-    tile::{Select, SelectTile, Terrain, TerrainTile, UnitTile},
-};
+use self::tile::{Select, SelectTile, Terrain, TerrainTile, UnitTile};
 
-pub mod select;
 pub mod tile;
 
 pub struct MapPlugin;
 
 impl Plugin for MapPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(SelectPlugin);
-
         app.add_enter_system(AppState::Game, init_map);
     }
 }

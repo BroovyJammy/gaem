@@ -13,5 +13,5 @@ impl Plugin for UiPlugin {
 fn main_menu(mut commands: Commands) {
     commands
         .spawn_bundle(Camera2dBundle::default())
-        .insert_bundle(crate::input::make_action_manager());
+        .insert_bundle(crate::gameplay::make_action_manager());
 }
