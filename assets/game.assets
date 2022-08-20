@@ -8,4 +8,7 @@
     "image.terrain": File (
         path: "image/tile/terrain.png",
     ),
+    "image.insect": File (
+        path: "image/tile/insect.png",
+    ),
 })

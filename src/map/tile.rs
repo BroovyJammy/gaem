@@ -17,9 +17,6 @@ impl From<Select> for TileTexture {
     }
 }
 
-#[derive(Component)]
-pub struct UnitTile;
-
 // See `image/tile/unit.png`
 pub enum Unit {
     None,

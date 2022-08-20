@@ -13,7 +13,7 @@ impl Plugin for AssetsPlugin {
                     "game.assets",
                 ])
                 .with_collection::<UiAssets>()
-                .with_collection::<MapAssets>()
+                .with_collection::<MapAssets>(),
         );
         // app.add_system_to_stage(CoreStage::Last, debug_progress.run_in_state(AppState::AssetsLoading));
     }
@@ -27,6 +27,8 @@ pub struct MapAssets {
     pub unit: Handle<Image>,
     #[asset(key = "image.terrain")]
     pub terrain: Handle<Image>,
+    #[asset(key = "image.insect")]
+    pub insect: Handle<Image>,
 }
 
 #[derive(AssetCollection)]
@@ -40,9 +42,7 @@ pub struct UiAssets {
 }
 
 #[allow(dead_code)]
-fn debug_progress(
-    counter: Res<ProgressCounter>,
-) {
+fn debug_progress(counter: Res<ProgressCounter>) {
     let progress = counter.progress();
     debug!("Progress: {}/{}", progress.done, progress.total);
     let progress = counter.progress_complete();
