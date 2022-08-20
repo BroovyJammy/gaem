@@ -31,17 +31,16 @@ features = [
     "dynamic_assets",
     "stageless",
     "progress_tracking",
-    "progress_tracking_stageless"
+    "progress_tracking_stageless",
 ]
 
 [dependencies.bevy_kira_audio]
 version = "0.12.0"
 default-features = false
-features = [
-    "flac",
-]
+features = ["flac"]
 
 [dependencies]
+leafwing-input-manager = "0.5"
 bevy_ecs_tilemap = "0.7.0"
 iyes_loopless = "0.7.1"
 iyes_progress = { version = "0.5.0", features = ["iyes_loopless"] }
