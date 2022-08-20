@@ -9,7 +9,7 @@ pub enum PartDirection {
     _Left,
     _Right,
 }
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum InsectPartKind {
     Flesh,
     _Head,

@@ -209,6 +209,15 @@ pub fn make_action_manager() -> InputManagerBundle<Action> {
                 },
                 Action::MoveSelection,
             )
+            .insert(
+                VirtualDPad {
+                    up: InputKind::Keyboard(KeyCode::Up),
+                    down: InputKind::Keyboard(KeyCode::Down),
+                    left: InputKind::Keyboard(KeyCode::Left),
+                    right: InputKind::Keyboard(KeyCode::Right),
+                },
+                Action::MoveSelection,
+            )
             .insert(MouseButton::Left, Action::Select)
             .insert(KeyCode::Space, Action::Select)
             // `South`, meaning A. South on D-Pad is `DPadDown`.
