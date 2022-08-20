@@ -7,18 +7,13 @@ impl Plugin for AssetsPlugin {
     fn build(&self, app: &mut App) {
         app.add_loading_state(
             LoadingState::new(AppState::AssetsLoading)
+                .continue_to_state(AppState::Game)
                 .with_dynamic_collections::<StandardDynamicAssetCollection>(vec![
                     "ui.assets",
                     "game.assets",
                 ])
                 .with_collection::<UiAssets>()
                 .with_collection::<MapAssets>()
-        );
-        // workaround for progress tracking bug
-        app.add_system(
-            iyes_progress::dummy_system_wait_frames::<5>
-                .track_progress()
-                .run_in_state(AppState::AssetsLoading)
         );
         // app.add_system_to_stage(CoreStage::Last, debug_progress.run_in_state(AppState::AssetsLoading));
     }

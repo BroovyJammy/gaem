@@ -68,7 +68,6 @@ fn main() {
     // external plugins
     app.add_plugin(
         ProgressPlugin::new(AppState::AssetsLoading)
-            .continue_to(AppState::Game)
     );
     app.add_plugin(TilemapPlugin);
     app.add_plugin(InputManagerPlugin::<input::Action>::default());
