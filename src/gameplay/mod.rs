@@ -10,6 +10,8 @@ use crate::map::{
 use crate::map::{Layer, LayerToMap};
 pub struct GameplayPlugin;
 
+mod insect_body;
+
 impl Plugin for GameplayPlugin {
     fn build(&self, app: &mut App) {
         app.add_system(select_unit.run_in_state(AppState::Game));
