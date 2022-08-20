@@ -1,5 +1,9 @@
 use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
+use iyes_loopless::prelude::IntoConditionalSystem;
+use leafwing_input_manager::prelude::*;
+
+use crate::{input::Action, state::GameState};
 
 use super::{
     tile::{Select, SelectTile},
@@ -11,8 +15,22 @@ pub struct SelectPlugin;
 impl Plugin for SelectPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CursorTilePos>()
-            .add_system(update_cursor_pos)
-            .add_system(highlight_hovered_tile.after(update_cursor_pos));
+            .add_event::<TileSelected>()
+            .add_system(
+                update_cursor_pos
+                    .run_in_state(GameState::Game)
+                    .label("update_cursor_pos"),
+            )
+            .add_system(
+                highlight_hovered_tile
+                    .run_in_state(GameState::Game)
+                    .after("update_cursor_pos"),
+            )
+            .add_system(
+                select_tile
+                    .run_in_state(GameState::Game)
+                    .after("update_cursor_pos"),
+            );
     }
 }
 
@@ -20,6 +38,9 @@ impl Plugin for SelectPlugin {
 // I use `UVec2` instead of `TilePos` bc `UVec2` impls more useful traits
 #[derive(Default, Deref, DerefMut)]
 pub struct CursorTilePos(Option<UVec2>);
+
+#[derive(Deref)]
+pub struct TileSelected(UVec2);
 
 // Adapted from Star Machine, a game that's currently on hold
 // Assumes that the map is at the origin
@@ -56,5 +77,17 @@ fn highlight_hovered_tile(
             Select::Inactive
         }
         .into();
+    }
+}
+
+fn select_tile(
+    mut selecteds: EventWriter<TileSelected>,
+    actioners: Query<&ActionState<Action>>,
+    cursor_pos: Res<CursorTilePos>,
+) {
+    if actioners.single().just_pressed(Action::Select) {
+        if let Some(pos) = **cursor_pos {
+            selecteds.send(TileSelected(pos));
+        }
     }
 }

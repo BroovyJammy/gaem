@@ -4,6 +4,7 @@ use leafwing_input_manager::{prelude::*, user_input::InputKind};
 #[derive(Actionlike, PartialEq, Eq, Clone, Copy, Hash, Debug)]
 pub enum Action {
     MoveSelection,
+    Select,
 }
 
 #[derive(Component, Copy, Clone)]
@@ -32,6 +33,10 @@ pub fn make_action_manager() -> InputManagerBundle<Action> {
                 },
                 Action::MoveSelection,
             )
+            .insert(MouseButton::Left, Action::Select)
+            .insert(KeyCode::Space, Action::Select)
+            // `South`, meaning A. South on D-Pad is `DPadDown`.
+            .insert(GamepadButtonType::South, Action::Select)
             .build(),
     }
 }
