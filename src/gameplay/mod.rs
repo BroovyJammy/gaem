@@ -15,12 +15,19 @@ impl Plugin for GameplayPlugin {
         app.add_system(
             move_unit
                 .run_in_state(AppState::Game)
+                .run_in_state(Turn::goodie())
                 .run_if_resource_exists::<SelectedUnit>(),
         );
         app.add_system(
             highlight_movable_tiles
                 .run_in_state(AppState::Game)
+                .run_in_state(Turn::goodie())
                 .run_if_resource_added::<SelectedUnit>(),
+        );
+        app.add_system(
+            remove_movement_indicator
+                .run_in_state(AppState::Game)
+                .run_if_resource_removed::<SelectedUnit>(),
         );
         #[derive(SystemLabel)]
         struct TempInsertUnits;
@@ -70,7 +77,20 @@ impl Plugin for GameplayPlugin {
             .add_system(
                 select_tile
                     .run_in_state(AppState::Game)
+                    .run_in_state(Turn::goodie())
                     .after("update_cursor_pos"),
+            );
+
+        app.add_loopless_state(Turn::goodie())
+            .add_system(
+                end_turn
+                    .run_in_state(AppState::Game)
+                    .run_in_state(Turn::goodie()),
+            )
+            .add_system(
+                enemy_turn
+                    .run_in_state(AppState::Game)
+                    .run_in_state(Turn::baddie()),
             );
     }
 }
@@ -82,10 +102,23 @@ struct SelectedUnit(Entity);
 #[derive(Component, Deref, Copy, Clone, Debug, Eq, PartialEq)]
 pub struct UnitPos(UVec2);
 
-#[derive(Clone, Component, Copy, Eq, PartialEq)]
+#[derive(Clone, Component, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum Team {
     Goodie,
     Baddie,
+}
+
+#[derive(Clone, Copy, Debug, Deref, DerefMut, Eq, Hash, PartialEq)]
+pub struct Turn(pub Team);
+
+impl Turn {
+    fn goodie() -> Self {
+        Self(Team::Goodie)
+    }
+
+    fn baddie() -> Self {
+        Self(Team::Baddie)
+    }
 }
 
 impl Team {
@@ -226,7 +259,6 @@ fn move_unit(
     mut commands: Commands,
     mut tile_selected: EventReader<TileSelected>,
     mut units: Query<(Entity, &mut UnitPos, &InsectBody)>,
-    mut movement_tiles: Query<&mut TileTexture, With<MovementTile>>,
     selected_unit: Res<SelectedUnit>,
 ) {
     if let Some(selected_tile) = tile_selected.iter().last() {
@@ -243,11 +275,13 @@ fn move_unit(
             let move_unit_to = selected_tile.0;
             move_unit_from.0 = move_unit_to;
             commands.remove_resource::<SelectedUnit>();
-
-            for mut texture in &mut movement_tiles {
-                *texture = Select::Inactive.into();
-            }
         }
+    }
+}
+
+fn remove_movement_indicator(mut movement_tiles: Query<&mut TileTexture, With<MovementTile>>) {
+    for mut texture in &mut movement_tiles {
+        *texture = Select::Inactive.into();
     }
 }
 
@@ -262,6 +296,7 @@ fn sync_unit_pos_with_transform(mut unit_transform: Query<(&UnitPos, &mut Transf
 pub enum Action {
     MoveSelection,
     Select,
+    EndTurn,
 }
 
 pub struct ReselectTile;
@@ -308,6 +343,7 @@ pub fn make_action_manager() -> InputManagerBundle<Action> {
             .insert(KeyCode::Space, Action::Select)
             // `South`, meaning A. South on D-Pad is `DPadDown`.
             .insert(GamepadButtonType::South, Action::Select)
+            .insert(KeyCode::Return, Action::EndTurn)
             .build(),
     }
 }
@@ -427,5 +463,25 @@ fn select_tile(
 ) {
     if actioners.single().just_pressed(Action::Select) {
         selecteds.send(TileSelected(cursor_pos.pos));
+    }
+}
+
+fn end_turn(mut commands: Commands, actioners: Query<&ActionState<Action>>) {
+    if actioners.single().just_pressed(Action::EndTurn) {
+        commands.remove_resource::<SelectedUnit>();
+        commands.insert_resource(NextState(Turn::baddie()));
+    }
+}
+
+#[derive(Default, Deref, DerefMut)]
+struct UselessTimer(Duration);
+
+fn enemy_turn(mut commands: Commands, mut useless_timer: Local<UselessTimer>, time: Res<Time>) {
+    // Nothing to do yet
+    if **useless_timer > Duration::from_secs(1) {
+        **useless_timer = default();
+        commands.insert_resource(NextState(Turn::goodie()));
+    } else {
+        **useless_timer += time.delta();
     }
 }

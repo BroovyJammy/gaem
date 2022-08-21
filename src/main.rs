@@ -21,6 +21,8 @@ mod gameplay;
 mod map;
 mod ui;
 
+use gameplay::{Team, Turn};
+
 use crate::prelude::*;
 
 // Feel free to move this
@@ -80,6 +82,7 @@ fn main() {
     {
         app.add_system(debug_state.exclusive_system().at_start());
         app.add_system(debug_nextstate.exclusive_system().at_end());
+        app.add_system(debug_turn.exclusive_system().at_start());
     }
 
     // let's gooo
@@ -95,5 +98,17 @@ fn debug_state(current: Res<CurrentState<AppState>>) {
 fn debug_nextstate(next: Option<Res<NextState<AppState>>>) {
     if let Some(next) = next {
         debug!("Queued state transition! {:?}", *next);
+    }
+}
+
+fn debug_turn(current: Res<CurrentState<Turn>>) {
+    if current.is_changed() {
+        debug!(
+            "{}",
+            match current.0 {
+                Turn(Team::Goodie) => "Your turn!",
+                Turn(Team::Baddie) => "Enemy turn!",
+            }
+        );
     }
 }

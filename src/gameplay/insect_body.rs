@@ -156,10 +156,10 @@ pub fn merge_insect_bodies(a: &InsectBody, b: &InsectBody) -> InsectBody {
 
     // not a closure because `|a: &u32| -> &u32 { a }` doesnt compile and there is no way to annotate the fn sig
     // without either `for<'a> |a: &'a u32| -> &'a u32` syntax, or `let a: impl Fn(&u32) -> &u32` syntax.
-    fn pick_edge_flesh<'a>(
+    fn pick_edge_flesh(
         filter: impl Fn(&InsectBody, &&InsectPart) -> bool,
-        body: &'a InsectBody,
-    ) -> &'a InsectPart {
+        body: &'_ InsectBody,
+    ) -> &'_ InsectPart {
         let hard_insect_parts = body.parts.iter().filter(|part| filter(body, part)).count();
         assert!(hard_insect_parts > 0);
         body.parts
