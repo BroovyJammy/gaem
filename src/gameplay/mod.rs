@@ -101,8 +101,13 @@ impl Team {
 
 // Temporary (moved to fn since it grew)
 fn insert_units(mut commands: Commands, assets: Res<MapAssets>) {
+    let mut team = true;
     for x in 0..MAP_SIZE {
         for y in 0..MAP_SIZE {
+            if y % 3 != 0 {
+                continue;
+            }
+
             if (x + y) % 12 == 0 {
                 let map_size = TilemapSize {
                     x: MAP_SIZE,
@@ -117,35 +122,31 @@ fn insert_units(mut commands: Commands, assets: Res<MapAssets>) {
                     y: TILE_SIZE as f32,
                 };
 
-                let team = match x % 2 == 0 {
+                team = !team;
+                let team = match team {
                     true => Team::Goodie,
                     false => Team::Baddie,
+                };
+
+                let body = {
+                    let src_1 = InsectBody::new(vec![
+                        InsectPart::new((0, 0), InsectPartKind::Head, PartDirection::Down),
+                        InsectPart::new((0, 1), InsectPartKind::Flesh, PartDirection::Up),
+                        InsectPart::new((1, 1), InsectPartKind::Flesh, PartDirection::Right),
+                    ]);
+                    let src_2 = InsectBody::new(vec![
+                        InsectPart::new((0, 0), InsectPartKind::Flesh, PartDirection::Down),
+                        InsectPart::new((0, 1), InsectPartKind::Flesh, PartDirection::Up),
+                        InsectPart::new((1, 1), InsectPartKind::Legs, PartDirection::Right),
+                    ]);
+                    insect_body::generate_body(&[src_1, src_2], 2)
                 };
 
                 commands
                     .spawn()
                     .insert_bundle(TransformBundle { ..default() })
                     .insert(UnitPos(UVec2::new(x, y)))
-                    .insert(InsectBody {
-                        parts: Box::new([
-                            InsectPart {
-                                kind: InsectPartKind::Head,
-                                position: (0, 0),
-                                rotation: PartDirection::Down,
-                            },
-                            InsectPart {
-                                kind: InsectPartKind::Flesh,
-                                position: (0, 1),
-                                rotation: PartDirection::Up,
-                            },
-                            InsectPart {
-                                kind: InsectPartKind::Legs,
-                                position: (1, 1),
-                                rotation: PartDirection::Right,
-                            },
-                        ]),
-                        used_tiles: std::collections::HashSet::from([(0, 0), (0, 1), (1, 1)]),
-                    })
+                    .insert(body)
                     .insert_bundle(TilemapBundle {
                         grid_size,
                         size: map_size,

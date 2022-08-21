@@ -41,13 +41,14 @@ default-features = false
 features = ["flac"]
 
 [dependencies]
+rand = { version = "0.8", features = ["std_rng"] }
 leafwing-input-manager = "0.5.0"
 bevy_ecs_tilemap = "0.7.0"
 iyes_loopless = "0.7.1"
 iyes_progress = { version = "0.5.0", features = ["iyes_loopless"] }
 iyes_scene_tools = "0.1.0"
 bevy_tweening = "0.5.0"
-bevy_common_assets = { version  = "0.3.0", features = ["ron", "toml"] }
+bevy_common_assets = { version = "0.3.0", features = ["ron", "toml"] }
 bevy_prototype_debug_lines = "0.8.1"
 
 [patch.crates-io]
