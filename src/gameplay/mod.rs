@@ -4,7 +4,10 @@ use crate::map::tile::{MovementTile, Select, SelectTile};
 use crate::map::{Layer, LayerToMap};
 use crate::map::{MAP_SIZE, TILE_SIZE};
 use crate::{gameplay::insect_body::InsectBody, prelude::*};
+use bevy::utils::HashSet;
 use leafwing_input_manager::user_input::InputKind;
+
+use self::insect_body::UpdateBody;
 pub struct GameplayPlugin;
 
 mod insect_body;
@@ -30,21 +33,17 @@ impl Plugin for GameplayPlugin {
                 .run_if_resource_removed::<SelectedUnit>(),
         );
         #[derive(SystemLabel)]
-        struct TempInsertUnits;
-        #[derive(SystemLabel)]
         struct Thingy;
 
-        app.add_enter_system(AppState::Game, insert_units.label(TempInsertUnits))
+        app.add_enter_system(AppState::Game, insert_units)
             .add_system(
                 insect_body::update_insect_body_tilemap
                     .run_in_state(AppState::Game)
-                    .after(TempInsertUnits)
                     .label(Thingy),
             )
             .add_system(
                 sync_unit_pos_with_transform
                     .run_in_state(AppState::Game)
-                    .after(TempInsertUnits)
                     .before(Thingy),
             );
         app.add_event::<ReselectTile>()
@@ -91,7 +90,9 @@ impl Plugin for GameplayPlugin {
                 enemy_turn
                     .run_in_state(AppState::Game)
                     .run_in_state(Turn::baddie()),
-            );
+            )
+            .add_exit_system(Turn::goodie(), attack(Team::Goodie))
+            .add_exit_system(Turn::baddie(), attack(Team::Baddie));
     }
 }
 
@@ -189,6 +190,7 @@ fn insert_units(mut commands: Commands, assets: Res<MapAssets>) {
                         transform: Transform::from_translation(Vec3::new(0.0, 0.0, 0.0)),
                         ..default()
                     })
+                    .insert(UpdateBody)
                     .insert(team);
             }
         }
@@ -483,5 +485,107 @@ fn enemy_turn(mut commands: Commands, mut useless_timer: Local<UselessTimer>, ti
         commands.insert_resource(NextState(Turn::goodie()));
     } else {
         **useless_timer += time.delta();
+    }
+}
+
+fn attack(
+    attacking_team: Team,
+) -> impl Fn(Commands, Query<(Entity, &UnitPos, &mut InsectBody, &Team)>) {
+    move |mut commands, mut units| {
+        let mut attacks = Vec::default();
+
+        for [(_, attacker_pos, attacker_body, attacker_team), (defender, defender_pos, defender_body, _)] in
+            // `iter_combinations` to avoid attacking self
+            units.iter_combinations()
+        {
+            if attacking_team != *attacker_team {
+                continue;
+            }
+
+            let delta = attacker_pos.as_ivec2() - defender_pos.as_ivec2();
+            for attacker_part in attacker_body.parts.iter() {
+                let damage = attacker_part.kind.damage();
+
+                if damage == 0 {
+                    continue;
+                }
+
+                let delta = delta + UVec2::from(attacker_part.position).as_ivec2();
+                for defender_part in defender_body.parts.iter() {
+                    let delta = delta - UVec2::from(defender_part.position).as_ivec2();
+
+                    if delta.x.abs() + delta.y.abs() == 1 {
+                        // Adjacent
+                        attacks.push((defender, defender_part.position, damage));
+                        debug!("Damage!");
+                    }
+                }
+            }
+        }
+
+        let mut to_sever = HashSet::default();
+        let mut severees = HashSet::default();
+        for (victim, part_pos, damage) in attacks.into_iter() {
+            let (_, _, mut body, _) = units.get_mut(victim).unwrap();
+            let part = body.get_part_mut(part_pos).unwrap();
+
+            part.health = part.health.saturating_sub(damage);
+            if part.health == 0 {
+                // Sometimes the same part receives multiple killing blows,
+                // so we have to avoid severing it twice
+                to_sever.insert((victim, part_pos));
+                severees.insert(victim);
+            }
+        }
+
+        for (severee, part) in to_sever.into_iter() {
+            let (_, _, mut body, _) = units.get_mut(severee).unwrap();
+            body.remove_part(part);
+        }
+
+        // Have to do this logic separately in case multiple parts were severed
+        for severee in severees.into_iter() {
+            let (_, _, mut body, _) = units.get_mut(severee).unwrap();
+
+            let mut living = HashSet::<(u32, u32)>::default();
+            let mut to_visit = body
+                .parts
+                .iter()
+                .filter_map(|part| (part.kind == InsectPartKind::Head).then(|| part.position))
+                .collect::<Vec<_>>();
+
+            while let Some(visit_pos) = to_visit.pop() {
+                if living.contains(&visit_pos) || !body.used_tiles.contains(&visit_pos) {
+                    continue;
+                }
+
+                living.insert(visit_pos);
+                for (dx, dy) in [(0, 1), (0, -1), (1, 0), (-1, 0)] {
+                    let next_pos = (visit_pos.0 as i32 + dx, visit_pos.1 as i32 + dy);
+                    if next_pos.0 >= 0 && next_pos.1 >= 0 {
+                        to_visit.push((next_pos.0 as u32, next_pos.1 as u32));
+                    }
+                }
+            }
+
+            // Have to collect for ownership
+            for amputate_pos in body
+                .used_tiles
+                .difference(&living)
+                .copied()
+                .collect::<Vec<_>>()
+                .into_iter()
+            {
+                body.remove_part(amputate_pos);
+            }
+
+            if body.used_tiles.len() < 2 {
+                debug!("Death!");
+                // No floating heads
+                commands.entity(severee).despawn_recursive();
+            } else {
+                commands.entity(severee).insert(UpdateBody);
+            }
+        }
     }
 }

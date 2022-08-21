@@ -1,7 +1,6 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, utils::HashSet};
 use bevy_ecs_tilemap::prelude::*;
 use rand::Rng;
-use std::collections::HashSet;
 
 use super::{Team, UnitPos};
 
@@ -12,7 +11,7 @@ pub enum PartDirection {
     Down = 2,
     _Left = 3,
 }
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum InsectPartKind {
     Flesh = 0,
     Head = 1,
@@ -32,6 +31,13 @@ impl InsectPartKind {
             Self::Flesh => 3,
             Self::Head => 2,
             Self::Legs => 2,
+        }
+    }
+
+    pub fn damage(self) -> u32 {
+        match self {
+            Self::Head => 1,
+            _ => 0,
         }
     }
 }
@@ -56,13 +62,12 @@ impl InsectPart {
 
 #[derive(Component, Clone)]
 pub struct InsectBody {
-    pub parts: Box<[InsectPart]>,
+    pub parts: Vec<InsectPart>,
     pub used_tiles: HashSet<(u32, u32)>,
 }
 
 impl InsectBody {
     pub fn new(parts: Vec<InsectPart>) -> Self {
-        let parts = parts.into_boxed_slice();
         let used_tiles = parts.iter().map(|part| part.position).collect();
         Self { parts, used_tiles }
     }
@@ -100,6 +105,17 @@ impl InsectBody {
         self.parts.iter().find(|part| part.position == local_tile)
     }
 
+    pub fn get_part_mut(&mut self, local_tile: (u32, u32)) -> Option<&mut InsectPart> {
+        self.parts
+            .iter_mut()
+            .find(|part| part.position == local_tile)
+    }
+
+    pub fn remove_part(&mut self, local_tile: (u32, u32)) {
+        self.parts.retain(|part| part.position != local_tile);
+        self.used_tiles.remove(&local_tile);
+    }
+
     /// # Panics
     /// Panics if `local_tile` does not have any insect parts on it
     pub fn adjacent_parts(
@@ -129,11 +145,25 @@ impl InsectBody {
     }
 }
 
+#[derive(Component)]
+#[component(storage = "SparseSet")]
+pub struct UpdateBody;
+
 pub fn update_insect_body_tilemap(
     mut cmds: Commands<'_, '_>,
-    mut insects: Query<(Entity, &mut TileStorage, &InsectBody, &Team), Added<InsectBody>>,
+    mut insects: Query<(Entity, &mut TileStorage, &InsectBody, &Team), With<UpdateBody>>,
 ) {
     for (entity, mut tilemap, body, team) in insects.iter_mut() {
+        for tile in tilemap.iter_mut() {
+            if let Some(tile) = tile {
+                cmds.entity(*tile).despawn_recursive();
+            }
+
+            if tile.is_some() {
+                *tile = None;
+            }
+        }
+
         for part in body.parts.iter() {
             let tile_pos = TilePos::new(part.position.0, part.position.1);
             let tile_id = cmds
@@ -147,6 +177,8 @@ pub fn update_insect_body_tilemap(
                 .id();
             tilemap.set(&tile_pos, Some(tile_id));
         }
+
+        cmds.entity(entity).remove::<UpdateBody>();
     }
 }
 
