@@ -171,8 +171,6 @@ pub fn merge_insect_bodies(a: &InsectBody, b: &InsectBody) -> InsectBody {
 
     let a_flesh = pick_edge_flesh(filter, a);
     let b_flesh = pick_edge_flesh(filter, b);
-    dbg!(&a_flesh);
-    dbg!(&b_flesh);
 
     let mut pad_x_start = 0;
     let mut pad_y_start = 0;
