@@ -8,7 +8,7 @@ use leafwing_input_manager::user_input::InputKind;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
-use self::insect_body::UpdateBody;
+use self::insect_body::{InsectRenderEntities, UpdateBody};
 pub struct GameplayPlugin;
 
 pub mod insect_body;
@@ -180,6 +180,10 @@ fn insert_units(mut commands: Commands) {
                     .insert(body)
                     .insert(UpdateBody)
                     .insert(team)
+                    .insert(InsectRenderEntities {
+                        hp_bar: HashMap::new(),
+                        body_part: HashMap::new(),
+                    })
                     .insert_bundle(VisibilityBundle { ..default() });
             }
         }
@@ -517,6 +521,8 @@ fn attack(
         let mut to_sever = HashSet::default();
         let mut severees = HashSet::default();
         for (victim, part_pos, damage) in attacks.into_iter() {
+            commands.entity(victim).insert(UpdateBody);
+
             let (_, _, mut body, _) = units.get_mut(victim).unwrap();
             let part = body.get_part_mut(part_pos).unwrap();
 
@@ -576,7 +582,6 @@ fn attack(
                 commands.entity(severee).despawn_recursive();
             } else {
                 debug!("Destroyed Part!");
-                commands.entity(severee).insert(UpdateBody);
             }
         }
     }

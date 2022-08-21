@@ -1,4 +1,8 @@
-use bevy::{prelude::*, sprite::Anchor, utils::HashSet};
+use bevy::{
+    prelude::*,
+    sprite::Anchor,
+    utils::{HashMap, HashSet},
+};
 use rand::{rngs::StdRng, Rng};
 
 use crate::{asset::MapAssets, map::TILE_SIZE};
@@ -150,44 +154,87 @@ impl InsectBody {
 #[component(storage = "SparseSet")]
 pub struct UpdateBody;
 
+#[derive(Component)]
+/// Used to keep track of the render entities corresponding to each insect part
+pub struct InsectRenderEntities {
+    pub hp_bar: HashMap<(u32, u32), Entity>,
+    pub body_part: HashMap<(u32, u32), Entity>,
+}
+
 pub fn update_insect_body_tilemap(
     mut cmds: Commands<'_, '_>,
-    mut insects: Query<(Entity, &InsectBody, &Team, Option<&Children>), With<UpdateBody>>,
+    mut insects: Query<(Entity, &InsectBody, &Team, &mut InsectRenderEntities), With<UpdateBody>>,
     assets: Res<MapAssets>,
 ) {
-    for (entity, body, team, children) in insects.iter_mut() {
-        if let Some(children) = children {
-            for child in children.iter() {
-                cmds.entity(*child).despawn_recursive();
-            }
+    for (entity, body, team, mut render_body_parts) in insects.iter_mut() {
+        for child in render_body_parts.body_part.values() {
+            cmds.entity(*child).despawn_recursive();
         }
+        for child in render_body_parts.hp_bar.values() {
+            cmds.entity(*child).despawn_recursive();
+        }
+        render_body_parts.body_part.clear();
+        render_body_parts.hp_bar.clear();
+
         cmds.entity(entity)
             .with_children(|child_builder| {
                 for part in body.parts.iter() {
-                    child_builder.spawn_bundle(SpriteSheetBundle {
-                        sprite: TextureAtlasSprite {
-                            index: part.kind as usize,
-                            color: team.color(),
-                            anchor: Anchor::Center,
-                            ..default()
-                        },
-                        transform: Transform {
-                            translation: {
-                                Vec3::new(
-                                    (part.position.0 * TILE_SIZE + TILE_SIZE / 2) as f32,
-                                    (part.position.1 * TILE_SIZE + TILE_SIZE / 2) as f32,
-                                    0.0,
-                                )
+                    let body_part = child_builder
+                        .spawn_bundle(SpriteSheetBundle {
+                            sprite: TextureAtlasSprite {
+                                index: part.kind as usize,
+                                color: team.color(),
+                                anchor: Anchor::Center,
+                                ..default()
                             },
-                            rotation: Quat::from_axis_angle(
-                                Vec3::Z,
-                                part.rotation as u8 as f32 * std::f32::consts::FRAC_PI_2,
-                            ),
+                            transform: Transform {
+                                translation: {
+                                    Vec3::new(
+                                        (part.position.0 * TILE_SIZE + TILE_SIZE / 2) as f32,
+                                        (part.position.1 * TILE_SIZE + TILE_SIZE / 2) as f32,
+                                        0.0,
+                                    )
+                                },
+                                rotation: Quat::from_axis_angle(
+                                    Vec3::Z,
+                                    part.rotation as u8 as f32 * std::f32::consts::FRAC_PI_2,
+                                ),
+                                ..default()
+                            },
+                            texture_atlas: assets.insect.clone(),
                             ..default()
-                        },
-                        texture_atlas: assets.insect.clone(),
-                        ..default()
-                    });
+                        })
+                        .id();
+                    render_body_parts.body_part.insert(part.position, body_part);
+
+                    let hp = child_builder
+                        .spawn_bundle(SpriteBundle {
+                            sprite: Sprite {
+                                color: Color::rgba(0.4, 0.0, 0.0, 0.5),
+                                flip_x: false,
+                                flip_y: false,
+                                custom_size: Some(Vec2::new(
+                                    TILE_SIZE as f32,
+                                    TILE_SIZE as f32
+                                        - (TILE_SIZE as f32
+                                            * (part.health as f32 / part.kind.max_health() as f32)),
+                                )),
+                                anchor: Anchor::BottomLeft,
+                            },
+                            transform: Transform {
+                                translation: {
+                                    Vec3::new(
+                                        (part.position.0 * TILE_SIZE) as f32,
+                                        (part.position.1 * TILE_SIZE) as f32,
+                                        1.0,
+                                    )
+                                },
+                                ..default()
+                            },
+                            ..default()
+                        })
+                        .id();
+                    render_body_parts.hp_bar.insert(part.position, hp);
                 }
             })
             .remove::<UpdateBody>();
