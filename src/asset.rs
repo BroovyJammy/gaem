@@ -1,5 +1,6 @@
 use crate::prelude::*;
 use bevy_asset_loader::prelude::*;
+use bevy_common_assets::toml::TomlAssetPlugin;
 
 pub struct AssetsPlugin;
 
@@ -13,8 +14,10 @@ impl Plugin for AssetsPlugin {
                     "game.assets",
                 ])
                 .with_collection::<UiAssets>()
+                .with_collection::<BodyPartAssets>()
                 .with_collection::<MapAssets>(),
         );
+        app.add_plugin(TomlAssetPlugin::<BodyPartAsset>::new(&["bodypart.toml"]));
         // app.add_system_to_stage(CoreStage::Last, debug_progress.run_in_state(AppState::AssetsLoading));
     }
 }
@@ -37,6 +40,58 @@ pub struct UiAssets {
     pub font_bold: Handle<Font>,
     #[asset(key = "font.light")]
     pub font_light: Handle<Font>,
+}
+
+/// This will be available as a resource
+///
+/// Contains all the body part descriptors loaded from asset files
+#[derive(Deref)]
+pub struct BodyParts(Vec<BodyPartDescriptor>);
+
+#[derive(Debug, Clone)]
+#[derive(serde::Deserialize)]
+pub struct BodyPartDescriptor {
+    index: u32,
+    // TODO: add more stuff here
+    // kind: crate::gameplay::insect_body::InsectPartKind,
+}
+
+
+// [INTERNAL THINGS BELOW] //
+
+/// internal thingy to load all the asset files
+/// and accumulate them into a BodyParts resource
+#[derive(AssetCollection)]
+struct BodyPartAssets {
+    #[asset(key = "meta.bodyparts", collection(typed))]
+    #[allow(dead_code)]
+    handles: Vec<Handle<BodyPartAsset>>,
+    #[allow(dead_code)]
+    all: BodyPartsMarker,
+}
+
+struct BodyPartsMarker;
+
+#[derive(bevy::reflect::TypeUuid, serde::Deserialize)]
+#[uuid = "78a56857-57f8-4f05-b639-c2c3b7a00085"]
+struct BodyPartAsset {
+    bodypart: Vec<BodyPartDescriptor>,
+}
+
+impl FromWorld for BodyPartsMarker {
+    fn from_world(world: &mut World) -> Self {
+        let mut all = Vec::new();
+        {
+            let assets = world.resource::<Assets<BodyPartAsset>>();
+            for (_, asset) in assets.iter() {
+                for desc in asset.bodypart.iter() {
+                    all.push(desc.clone());
+                }
+            }
+        }
+        world.insert_resource(BodyParts(all));
+        BodyPartsMarker
+    }
 }
 
 #[allow(dead_code)]

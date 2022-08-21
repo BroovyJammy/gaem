@@ -1,4 +1,7 @@
 ({
+    "meta.bodyparts": Folder (
+        path: "bodyparts/",
+    ),
     "image.select": File (
         path: "image/tile/select.png",
     ),
