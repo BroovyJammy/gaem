@@ -160,17 +160,17 @@ fn select_unit(
     mut commands: Commands,
     mut selected_tiles: EventReader<TileSelected>,
     selected_unit: Option<Res<SelectedUnit>>,
-    units: Query<(Entity, &UnitPos, &InsectBody)>,
+    units: Query<(Entity, &UnitPos, &InsectBody, &Team)>,
 ) {
     let selected_unit = selected_unit.map(|unit| **unit);
 
     // `.last()` bc it's better to eat simultaneous inputs than cause weird bugs
     if let Some(selected_tile) = selected_tiles.iter().last() {
-        for (unit, pos, body) in &units {
+        for (unit, pos, body, team) in &units {
             if body.contains_tile(*pos, **selected_tile) {
                 // There's a unit on this tile!
-                if Some(unit) == selected_unit {
-                    // The unit is already selected. Unselect it.
+                if *team == Team::Baddie || Some(unit) == selected_unit {
+                    // The unit is already selected, or clicked on a baddie. Unselect.
                     commands.remove_resource::<SelectedUnit>();
                 } else {
                     commands.insert_resource(SelectedUnit(unit));
