@@ -22,83 +22,19 @@ impl Plugin for GameplayPlugin {
         #[derive(SystemLabel)]
         struct Thingy;
 
-        // Awesome temporary system
-        app.add_enter_system(
-            AppState::Game,
-            (|mut commands: Commands, assets: Res<MapAssets>| {
-                for x in 0..MAP_SIZE {
-                    for y in 0..MAP_SIZE {
-                        if (x + y) % 12 == 0 {
-                            let map_size = TilemapSize {
-                                x: MAP_SIZE,
-                                y: MAP_SIZE,
-                            };
-                            let grid_size = TilemapGridSize {
-                                x: TILE_SIZE as f32,
-                                y: TILE_SIZE as f32,
-                            };
-                            let tile_size = TilemapTileSize {
-                                x: TILE_SIZE as f32,
-                                y: TILE_SIZE as f32,
-                            };
-
-                            commands
-                                .spawn()
-                                .insert_bundle(TransformBundle { ..default() })
-                                .insert(UnitPos(UVec2::new(x, y)))
-                                .insert(InsectBody {
-                                    parts: Box::new([
-                                        InsectPart {
-                                            kind: InsectPartKind::Head,
-                                            position: (0, 0),
-                                            rotation: PartDirection::Down,
-                                        },
-                                        InsectPart {
-                                            kind: InsectPartKind::Flesh,
-                                            position: (0, 1),
-                                            rotation: PartDirection::Up,
-                                        },
-                                        InsectPart {
-                                            kind: InsectPartKind::Legs,
-                                            position: (1, 1),
-                                            rotation: PartDirection::Right,
-                                        },
-                                    ]),
-                                    used_tiles: std::collections::HashSet::from([
-                                        (0, 0),
-                                        (0, 1),
-                                        (1, 1),
-                                    ]),
-                                })
-                                .insert_bundle(TilemapBundle {
-                                    grid_size,
-                                    size: map_size,
-                                    storage: TileStorage::empty(map_size),
-                                    texture: TilemapTexture(assets.insect.clone()),
-                                    tile_size,
-                                    transform: Transform::from_translation(Vec3::new(
-                                        0.0, 0.0, 0.0,
-                                    )),
-                                    ..default()
-                                });
-                        }
-                    }
-                }
-            })
-            .label(TempInsertUnits),
-        )
-        .add_system(
-            insect_body::update_insect_body_tilemap
-                .run_in_state(AppState::Game)
-                .after(TempInsertUnits)
-                .label(Thingy),
-        )
-        .add_system(
-            sync_unit_pos_with_transform
-                .run_in_state(AppState::Game)
-                .after(TempInsertUnits)
-                .before(Thingy),
-        );
+        app.add_enter_system(AppState::Game, insert_units.label(TempInsertUnits))
+            .add_system(
+                insect_body::update_insect_body_tilemap
+                    .run_in_state(AppState::Game)
+                    .after(TempInsertUnits)
+                    .label(Thingy),
+            )
+            .add_system(
+                sync_unit_pos_with_transform
+                    .run_in_state(AppState::Game)
+                    .after(TempInsertUnits)
+                    .before(Thingy),
+            );
         app.add_event::<ReselectTile>()
             .add_system(
                 handle_input
@@ -140,6 +76,85 @@ struct SelectedUnit(Entity);
 
 #[derive(Component, Deref, Copy, Clone, Debug, Eq, PartialEq)]
 pub struct UnitPos(UVec2);
+
+#[derive(Clone, Component, Copy, Eq, PartialEq)]
+pub enum Team {
+    Goodie,
+    Baddie,
+}
+
+impl Team {
+    fn color(self) -> Color {
+        match self {
+            Team::Goodie => Color::WHITE,
+            // Cyan is the clearest tint, since the units are red-colored
+            // Might want to indicate with some other method if this is too ugly
+            Team::Baddie => Color::rgb(0.3, 1., 1.),
+        }
+    }
+}
+
+// Temporary (moved to fn since it grew)
+fn insert_units(mut commands: Commands, assets: Res<MapAssets>) {
+    for x in 0..MAP_SIZE {
+        for y in 0..MAP_SIZE {
+            if (x + y) % 12 == 0 {
+                let map_size = TilemapSize {
+                    x: MAP_SIZE,
+                    y: MAP_SIZE,
+                };
+                let grid_size = TilemapGridSize {
+                    x: TILE_SIZE as f32,
+                    y: TILE_SIZE as f32,
+                };
+                let tile_size = TilemapTileSize {
+                    x: TILE_SIZE as f32,
+                    y: TILE_SIZE as f32,
+                };
+
+                let team = match x % 2 == 0 {
+                    true => Team::Goodie,
+                    false => Team::Baddie,
+                };
+
+                commands
+                    .spawn()
+                    .insert_bundle(TransformBundle { ..default() })
+                    .insert(UnitPos(UVec2::new(x, y)))
+                    .insert(InsectBody {
+                        parts: Box::new([
+                            InsectPart {
+                                kind: InsectPartKind::Head,
+                                position: (0, 0),
+                                rotation: PartDirection::Down,
+                            },
+                            InsectPart {
+                                kind: InsectPartKind::Flesh,
+                                position: (0, 1),
+                                rotation: PartDirection::Up,
+                            },
+                            InsectPart {
+                                kind: InsectPartKind::Legs,
+                                position: (1, 1),
+                                rotation: PartDirection::Right,
+                            },
+                        ]),
+                        used_tiles: std::collections::HashSet::from([(0, 0), (0, 1), (1, 1)]),
+                    })
+                    .insert_bundle(TilemapBundle {
+                        grid_size,
+                        size: map_size,
+                        storage: TileStorage::empty(map_size),
+                        texture: TilemapTexture(assets.insect.clone()),
+                        tile_size,
+                        transform: Transform::from_translation(Vec3::new(0.0, 0.0, 0.0)),
+                        ..default()
+                    })
+                    .insert(team);
+            }
+        }
+    }
+}
 
 fn select_unit(
     mut commands: Commands,

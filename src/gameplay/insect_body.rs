@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_ecs_tilemap::prelude::*;
 use std::collections::HashSet;
 
-use super::UnitPos;
+use super::{Team, UnitPos};
 
 #[derive(Clone, Copy, Debug)]
 pub enum PartDirection {
@@ -56,9 +56,9 @@ impl InsectBody {
 
 pub fn update_insect_body_tilemap(
     mut cmds: Commands<'_, '_>,
-    mut insects: Query<(Entity, &mut TileStorage, &InsectBody), Added<InsectBody>>,
+    mut insects: Query<(Entity, &mut TileStorage, &InsectBody, &Team), Added<InsectBody>>,
 ) {
-    for (entity, mut tilemap, body) in insects.iter_mut() {
+    for (entity, mut tilemap, body, team) in insects.iter_mut() {
         for part in body.parts.iter() {
             let tile_pos = TilePos::new(part.position.0, part.position.1);
             let tile_id = cmds
@@ -66,7 +66,7 @@ pub fn update_insect_body_tilemap(
                     position: tile_pos,
                     tilemap_id: TilemapId(entity),
                     texture: TileTexture(part.kind as u32 * 4 + part.rotation as u32),
-                    color: TileColor(Vec4::ONE.into()),
+                    color: TileColor(team.color()),
                     ..default()
                 })
                 .id();
