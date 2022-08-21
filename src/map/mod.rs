@@ -50,11 +50,7 @@ fn init_map(mut commands: Commands, assets: Res<MapAssets>) {
     };
 
     let mut layer_to_map = LayerToMap(HashMap::new());
-    for layer in [
-        Layer::Select,
-        Layer::Movement,
-        /* Layer::Unit, */ Layer::Terrain,
-    ] {
+    for layer in [Layer::Select, Layer::Movement, Layer::Terrain] {
         let map = commands.spawn().id();
         let mut tile_storage = TileStorage::empty(map_size);
 

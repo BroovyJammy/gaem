@@ -30,7 +30,7 @@ pub struct MapAssets {
     #[asset(key = "image.terrain")]
     pub terrain: Handle<Image>,
     #[asset(key = "image.insect")]
-    pub insect: Handle<Image>,
+    pub insect: Handle<TextureAtlas>,
 }
 
 #[derive(AssetCollection)]
@@ -49,8 +49,7 @@ pub struct UiAssets {
 #[derive(Deref)]
 pub struct BodyParts(Vec<BodyPartDescriptor>);
 
-#[derive(Debug, Clone)]
-#[derive(serde::Deserialize)]
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct BodyPartDescriptor {
     index: u32,
     max_health: u32,
@@ -58,7 +57,6 @@ pub struct BodyPartDescriptor {
     // TODO: add more stuff here
     // kind: crate::gameplay::insect_body::InsectPartKind,
 }
-
 
 // [INTERNAL THINGS BELOW] //
 
@@ -106,8 +104,6 @@ fn debug_progress(counter: Res<ProgressCounter>) {
 }
 
 #[allow(dead_code)]
-fn debug_bodyparts(
-    bp: Res<BodyParts>,
-) {
+fn debug_bodyparts(bp: Res<BodyParts>) {
     dbg!(&bp.0);
 }

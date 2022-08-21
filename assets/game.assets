@@ -8,7 +8,11 @@
     "image.terrain": File (
         path: "image/tile/terrain.png",
     ),
-    "image.insect": File (
+    "image.insect": TextureAtlas (
         path: "image/tile/insect.png",
+        tile_size_x: 32.,
+        tile_size_y: 32.,
+        columns: 4,
+        rows: 3,
     ),
 })

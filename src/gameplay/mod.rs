@@ -1,4 +1,3 @@
-use crate::asset::MapAssets;
 use crate::gameplay::insect_body::{InsectPart, InsectPartKind, PartDirection};
 use crate::map::tile::{MovementTile, Select, SelectTile};
 use crate::map::{Layer, LayerToMap};
@@ -136,8 +135,10 @@ impl Team {
 }
 
 // Temporary (moved to fn since it grew)
-fn insert_units(mut commands: Commands, assets: Res<MapAssets>) {
+fn insert_units(mut commands: Commands) {
     let mut team = true;
+    let mut to_spawn = 999;
+    let mut seeds = vec![];
     for x in 0..MAP_SIZE {
         for y in 0..MAP_SIZE {
             if y % 3 != 0 {
@@ -145,18 +146,10 @@ fn insert_units(mut commands: Commands, assets: Res<MapAssets>) {
             }
 
             if (x + y) % 12 == 0 {
-                let map_size = TilemapSize {
-                    x: MAP_SIZE,
-                    y: MAP_SIZE,
-                };
-                let grid_size = TilemapGridSize {
-                    x: TILE_SIZE as f32,
-                    y: TILE_SIZE as f32,
-                };
-                let tile_size = TilemapTileSize {
-                    x: TILE_SIZE as f32,
-                    y: TILE_SIZE as f32,
-                };
+                if to_spawn == 0 {
+                    return;
+                }
+                to_spawn -= 1;
 
                 team = !team;
                 let team = match team {
@@ -175,8 +168,8 @@ fn insert_units(mut commands: Commands, assets: Res<MapAssets>) {
                         InsectPart::new((0, 1), InsectPartKind::Flesh, PartDirection::Up),
                         InsectPart::new((1, 1), InsectPartKind::Legs, PartDirection::Right),
                     ]);
-                    let seed = rand::thread_rng().gen();
-                    dbg!(seed);
+                    let seed = seeds.pop().unwrap_or_else(|| rand::thread_rng().gen());
+                    debug!(seed);
                     insect_body::generate_body(&[src_1, src_2], 2, &mut StdRng::seed_from_u64(seed))
                 };
 
@@ -185,17 +178,9 @@ fn insert_units(mut commands: Commands, assets: Res<MapAssets>) {
                     .insert_bundle(TransformBundle { ..default() })
                     .insert(UnitPos(UVec2::new(x, y)))
                     .insert(body)
-                    .insert_bundle(TilemapBundle {
-                        grid_size,
-                        size: map_size,
-                        storage: TileStorage::empty(map_size),
-                        texture: TilemapTexture(assets.insect.clone()),
-                        tile_size,
-                        transform: Transform::from_translation(Vec3::new(0.0, 0.0, 0.0)),
-                        ..default()
-                    })
                     .insert(UpdateBody)
-                    .insert(team);
+                    .insert(team)
+                    .insert_bundle(VisibilityBundle { ..default() });
             }
         }
     }
@@ -590,6 +575,7 @@ fn attack(
                 // No floating heads
                 commands.entity(severee).despawn_recursive();
             } else {
+                debug!("Destroyed Part!");
                 commands.entity(severee).insert(UpdateBody);
             }
         }

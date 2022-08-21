@@ -1,15 +1,16 @@
-use bevy::{prelude::*, utils::HashSet};
-use bevy_ecs_tilemap::prelude::*;
+use bevy::{prelude::*, sprite::Anchor, utils::HashSet};
 use rand::{rngs::StdRng, Rng};
+
+use crate::{asset::MapAssets, map::TILE_SIZE};
 
 use super::{Team, UnitPos};
 
 #[derive(Clone, Copy, Debug)]
 pub enum PartDirection {
-    Up = 0,
-    Right = 1,
+    Right = 3,
     Down = 2,
-    _Left = 3,
+    _Left = 1,
+    Up = 0,
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum InsectPartKind {
@@ -151,34 +152,45 @@ pub struct UpdateBody;
 
 pub fn update_insect_body_tilemap(
     mut cmds: Commands<'_, '_>,
-    mut insects: Query<(Entity, &mut TileStorage, &InsectBody, &Team), With<UpdateBody>>,
+    mut insects: Query<(Entity, &InsectBody, &Team, Option<&Children>), With<UpdateBody>>,
+    assets: Res<MapAssets>,
 ) {
-    for (entity, mut tilemap, body, team) in insects.iter_mut() {
-        for tile in tilemap.iter_mut() {
-            if let Some(tile) = tile {
-                cmds.entity(*tile).despawn_recursive();
-            }
-
-            if tile.is_some() {
-                *tile = None;
+    for (entity, body, team, children) in insects.iter_mut() {
+        if let Some(children) = children {
+            for child in children.iter() {
+                cmds.entity(*child).despawn_recursive();
             }
         }
-
-        for part in body.parts.iter() {
-            let tile_pos = TilePos::new(part.position.0, part.position.1);
-            let tile_id = cmds
-                .spawn_bundle(TileBundle {
-                    position: tile_pos,
-                    tilemap_id: TilemapId(entity),
-                    texture: TileTexture(part.kind as u32 * 4 + part.rotation as u32),
-                    color: TileColor(team.color()),
-                    ..default()
-                })
-                .id();
-            tilemap.set(&tile_pos, Some(tile_id));
-        }
-
-        cmds.entity(entity).remove::<UpdateBody>();
+        cmds.entity(entity)
+            .with_children(|child_builder| {
+                for part in body.parts.iter() {
+                    child_builder.spawn_bundle(SpriteSheetBundle {
+                        sprite: TextureAtlasSprite {
+                            index: part.kind as usize,
+                            color: team.color(),
+                            anchor: Anchor::Center,
+                            ..default()
+                        },
+                        transform: Transform {
+                            translation: {
+                                Vec3::new(
+                                    (part.position.0 * TILE_SIZE + TILE_SIZE / 2) as f32,
+                                    (part.position.1 * TILE_SIZE + TILE_SIZE / 2) as f32,
+                                    0.0,
+                                )
+                            },
+                            rotation: Quat::from_axis_angle(
+                                Vec3::Z,
+                                part.rotation as u8 as f32 * std::f32::consts::FRAC_PI_2,
+                            ),
+                            ..default()
+                        },
+                        texture_atlas: assets.insect.clone(),
+                        ..default()
+                    });
+                }
+            })
+            .remove::<UpdateBody>();
     }
 }
 
