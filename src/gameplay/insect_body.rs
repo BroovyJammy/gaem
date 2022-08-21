@@ -4,7 +4,7 @@ use std::collections::HashSet;
 
 use super::UnitPos;
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum PartDirection {
     Up = 0,
     Right = 1,
