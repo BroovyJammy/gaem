@@ -6,6 +6,8 @@ use crate::map::{MAP_SIZE, TILE_SIZE};
 use crate::{gameplay::insect_body::InsectBody, prelude::*};
 use bevy::utils::HashSet;
 use leafwing_input_manager::user_input::InputKind;
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 
 use self::insect_body::UpdateBody;
 pub struct GameplayPlugin;
@@ -173,7 +175,9 @@ fn insert_units(mut commands: Commands, assets: Res<MapAssets>) {
                         InsectPart::new((0, 1), InsectPartKind::Flesh, PartDirection::Up),
                         InsectPart::new((1, 1), InsectPartKind::Legs, PartDirection::Right),
                     ]);
-                    insect_body::generate_body(&[src_1, src_2], 2)
+                    let seed = rand::thread_rng().gen();
+                    dbg!(seed);
+                    insect_body::generate_body(&[src_1, src_2], 2, &mut StdRng::seed_from_u64(seed))
                 };
 
                 commands
@@ -494,30 +498,32 @@ fn attack(
     move |mut commands, mut units| {
         let mut attacks = Vec::default();
 
-        for [(_, attacker_pos, attacker_body, attacker_team), (defender, defender_pos, defender_body, _)] in
-            // `iter_combinations` to avoid attacking self
-            units.iter_combinations()
-        {
-            if attacking_team != *attacker_team {
-                continue;
-            }
-
-            let delta = attacker_pos.as_ivec2() - defender_pos.as_ivec2();
-            for attacker_part in attacker_body.parts.iter() {
-                let damage = attacker_part.kind.damage();
-
-                if damage == 0 {
+        // avoid using `iter_combinations` because it wont yield both `(enemy, player)` and `(player, enemy)`
+        for (attacker, attacker_pos, attacker_body, attacker_team) in units.iter() {
+            for (defender, defender_pos, defender_body, _) in units.iter() {
+                if defender == attacker || attacking_team != *attacker_team {
                     continue;
                 }
 
-                let delta = delta + UVec2::from(attacker_part.position).as_ivec2();
-                for defender_part in defender_body.parts.iter() {
-                    let delta = delta - UVec2::from(defender_part.position).as_ivec2();
+                for attacker_part in attacker_body.parts.iter() {
+                    let damage = attacker_part.kind.damage();
 
-                    if delta.x.abs() + delta.y.abs() == 1 {
-                        // Adjacent
-                        attacks.push((defender, defender_part.position, damage));
-                        debug!("Damage!");
+                    if damage == 0 {
+                        continue;
+                    }
+
+                    for defender_part in defender_body.parts.iter() {
+                        let global_attacker_part_pos = attacker_pos.as_ivec2()
+                            + UVec2::from(attacker_part.position).as_ivec2();
+                        let global_defender_part_pos = defender_pos.as_ivec2()
+                            + UVec2::from(defender_part.position).as_ivec2();
+                        let delta = global_defender_part_pos - global_attacker_part_pos;
+
+                        if delta.x.abs() + delta.y.abs() == 1 {
+                            // Adjacent
+                            attacks.push((defender, defender_part.position, damage));
+                            debug!("Damage!");
+                        }
                     }
                 }
             }

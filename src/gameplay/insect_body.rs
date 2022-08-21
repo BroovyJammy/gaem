@@ -1,6 +1,6 @@
 use bevy::{prelude::*, utils::HashSet};
 use bevy_ecs_tilemap::prelude::*;
-use rand::Rng;
+use rand::{rngs::StdRng, Rng};
 
 use super::{Team, UnitPos};
 
@@ -182,7 +182,7 @@ pub fn update_insect_body_tilemap(
     }
 }
 
-pub fn merge_insect_bodies(a: &InsectBody, b: &InsectBody) -> InsectBody {
+pub fn merge_insect_bodies(a: &InsectBody, b: &InsectBody, rng: &mut StdRng) -> InsectBody {
     let filter = |body: &InsectBody, part: &&InsectPart| {
         match part.kind {
             InsectPartKind::Flesh => (),
@@ -198,21 +198,22 @@ pub fn merge_insect_bodies(a: &InsectBody, b: &InsectBody) -> InsectBody {
 
     // not a closure because `|a: &u32| -> &u32 { a }` doesnt compile and there is no way to annotate the fn sig
     // without either `for<'a> |a: &'a u32| -> &'a u32` syntax, or `let a: impl Fn(&u32) -> &u32` syntax.
-    fn pick_edge_flesh(
+    fn pick_edge_flesh<'a>(
         filter: impl Fn(&InsectBody, &&InsectPart) -> bool,
-        body: &'_ InsectBody,
-    ) -> &'_ InsectPart {
+        body: &'a InsectBody,
+        rng: &mut StdRng,
+    ) -> &'a InsectPart {
         let hard_insect_parts = body.parts.iter().filter(|part| filter(body, part)).count();
         assert!(hard_insect_parts > 0);
         body.parts
             .iter()
             .filter(|part| filter(body, part))
-            .nth(rand::thread_rng().gen_range(0..hard_insect_parts))
+            .nth(rng.gen_range(0..hard_insect_parts))
             .unwrap()
     }
 
-    let a_flesh = pick_edge_flesh(filter, a);
-    let b_flesh = pick_edge_flesh(filter, b);
+    let a_flesh = pick_edge_flesh(filter, a, rng);
+    let b_flesh = pick_edge_flesh(filter, b, rng);
 
     let mut pad_x_start = 0;
     let mut pad_y_start = 0;
@@ -262,16 +263,16 @@ pub fn merge_insect_bodies(a: &InsectBody, b: &InsectBody) -> InsectBody {
     InsectBody::new(wip_insect_parts)
 }
 
-pub fn generate_body(sources: &[InsectBody], generations: u8) -> InsectBody {
+pub fn generate_body(sources: &[InsectBody], generations: u8, rng: &mut StdRng) -> InsectBody {
     let (lhs, rhs) = match generations {
         0 => (
-            sources[rand::thread_rng().gen_range(0..sources.len())].clone(),
-            sources[rand::thread_rng().gen_range(0..sources.len())].clone(),
+            sources[rng.gen_range(0..sources.len())].clone(),
+            sources[rng.gen_range(0..sources.len())].clone(),
         ),
         _ => (
-            generate_body(sources, generations - 1),
-            generate_body(sources, generations - 1),
+            generate_body(sources, generations - 1, rng),
+            generate_body(sources, generations - 1, rng),
         ),
     };
-    merge_insect_bodies(&lhs, &rhs)
+    merge_insect_bodies(&lhs, &rhs, rng)
 }
