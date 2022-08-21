@@ -201,7 +201,8 @@ fn can_move_unit<'a>(
                 return false;
             }
 
-            body.used_tiles
+            mover_body
+                .used_tiles
                 .iter()
                 .any(|(x, y)| body.contains_tile(*unit_pos, UVec2::new(x + to.x, y + to.y)))
         })
