@@ -1,6 +1,6 @@
 use crate::asset::MapAssets;
 use crate::gameplay::insect_body::{InsectPart, InsectPartKind, PartDirection};
-use crate::map::tile::{Select, SelectTile};
+use crate::map::tile::{MovementTile, Select, SelectTile};
 use crate::map::{Layer, LayerToMap};
 use crate::map::{MAP_SIZE, TILE_SIZE};
 use crate::{gameplay::insect_body::InsectBody, prelude::*};
@@ -16,6 +16,11 @@ impl Plugin for GameplayPlugin {
             move_unit
                 .run_in_state(AppState::Game)
                 .run_if_resource_exists::<SelectedUnit>(),
+        );
+        app.add_system(
+            highlight_movable_tiles
+                .run_in_state(AppState::Game)
+                .run_if_resource_added::<SelectedUnit>(),
         );
         #[derive(SystemLabel)]
         struct TempInsertUnits;
@@ -180,34 +185,66 @@ fn select_unit(
     }
 }
 
+fn can_move_unit<'a>(
+    mover: Entity,
+    mover_body: &InsectBody,
+    from: UVec2,
+    to: UVec2,
+    units: impl IntoIterator<Item = (Entity, &'a UnitPos, &'a InsectBody)>,
+) -> bool {
+    let move_delta = to.as_ivec2() - from.as_ivec2();
+
+    (move_delta.x.abs() + move_delta.y.abs()) as u32 <= mover_body.move_speed()
+        && !units.into_iter().any(|(unit_entity, unit_pos, body)| {
+            if unit_entity == mover {
+                return false;
+            }
+
+            body.used_tiles
+                .iter()
+                .any(|(x, y)| body.contains_tile(*unit_pos, UVec2::new(x + to.x, y + to.y)))
+        })
+}
+
+fn highlight_movable_tiles(
+    units: Query<(Entity, &UnitPos, &InsectBody)>,
+    mut movement_tiles: Query<(&mut TileTexture, &TilePos), With<MovementTile>>,
+    selected_unit: Res<SelectedUnit>,
+) {
+    let (_, unit_pos, body) = units.get(**selected_unit).unwrap();
+
+    for (mut texture, tile_pos) in &mut movement_tiles {
+        if can_move_unit(**selected_unit, body, **unit_pos, tile_pos.into(), &units) {
+            *texture = Select::Active.into();
+        }
+    }
+}
+
 fn move_unit(
     mut commands: Commands,
     mut tile_selected: EventReader<TileSelected>,
     mut units: Query<(Entity, &mut UnitPos, &InsectBody)>,
+    mut movement_tiles: Query<&mut TileTexture, With<MovementTile>>,
     selected_unit: Res<SelectedUnit>,
 ) {
     if let Some(selected_tile) = tile_selected.iter().last() {
         let (_, move_unit_from, selected_body) = units.get(selected_unit.0).unwrap();
-        let move_dist = selected_tile.as_ivec2() - move_unit_from.as_ivec2();
 
-        if (move_dist.x.abs() + move_dist.y.abs()) as u32 <= selected_body.move_speed()
-            && !units.iter().any(|(unit_entity, unit_pos, body)| {
-                if unit_entity == selected_unit.0 {
-                    return false;
-                }
-
-                selected_body.used_tiles.iter().any(|(x, y)| {
-                    body.contains_tile(
-                        *unit_pos,
-                        UVec2::new(x + selected_tile.x, y + selected_tile.y),
-                    )
-                })
-            })
-        {
+        if can_move_unit(
+            **selected_unit,
+            selected_body,
+            **move_unit_from,
+            **selected_tile,
+            &units,
+        ) {
             let (_, mut move_unit_from, _) = units.get_mut(**selected_unit).unwrap();
             let move_unit_to = selected_tile.0;
             move_unit_from.0 = move_unit_to;
             commands.remove_resource::<SelectedUnit>();
+
+            for mut texture in &mut movement_tiles {
+                *texture = Select::Inactive.into();
+            }
         }
     }
 }

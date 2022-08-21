@@ -1,7 +1,7 @@
 use crate::asset::MapAssets;
 use crate::prelude::*;
 
-use self::tile::{Select, SelectTile, Terrain, TerrainTile};
+use self::tile::{MovementTile, Select, SelectTile, Terrain, TerrainTile};
 
 pub mod tile;
 
@@ -16,6 +16,7 @@ impl Plugin for MapPlugin {
 #[derive(Hash, Eq, Clone, Component, Copy, PartialEq)]
 pub enum Layer {
     Select,
+    Movement,
     Terrain,
 }
 
@@ -28,9 +29,10 @@ pub const MAP_SIZE: u32 = 32;
 pub const TILE_SIZE: u32 = 32;
 // Characters will be at `1.`
 const SELECT_LAYER_Z: f32 = 2.;
+const MOVEMENT_LAYER_Z: f32 = 1.;
 const TERRAIN_LAYER_Z: f32 = 0.;
 // For some reason, this value has to be smaller than expected
-const SELECT_LAYER_ALPHA: f32 = 0.1;
+const SELECT_LAYER_ALPHA: f32 = 0.025;
 
 // Based on https://github.com/StarArawn/bevy_ecs_tilemap/blob/main/examples/basic.rs
 fn init_map(mut commands: Commands, assets: Res<MapAssets>) {
@@ -48,7 +50,11 @@ fn init_map(mut commands: Commands, assets: Res<MapAssets>) {
     };
 
     let mut layer_to_map = LayerToMap(HashMap::new());
-    for layer in [Layer::Select, /* Layer::Unit, */ Layer::Terrain] {
+    for layer in [
+        Layer::Select,
+        Layer::Movement,
+        /* Layer::Unit, */ Layer::Terrain,
+    ] {
         let map = commands.spawn().id();
         let mut tile_storage = TileStorage::empty(map_size);
 
@@ -62,24 +68,25 @@ fn init_map(mut commands: Commands, assets: Res<MapAssets>) {
                     tilemap_id: TilemapId(map),
                     // TEMP We'll want to load it from some data eventually
                     texture: match layer {
-                        Layer::Select => Select::Inactive.into(),
-                        // Is sometimes 1, which is the unit
+                        // Movement is like the select layer but green
+                        // They should be separate tho, so you can have both tiles at the same spot
+                        Layer::Select | Layer::Movement => Select::Inactive.into(),
                         Layer::Terrain => Terrain::Dirt.into(),
                     },
-                    color: TileColor(
-                        Vec3::ONE
-                            .extend(match layer {
-                                Layer::Select => SELECT_LAYER_ALPHA,
-                                _ => 1.,
-                            })
-                            .into(),
-                    ),
+                    color: TileColor(match layer {
+                        Layer::Select => Vec3::ONE.extend(SELECT_LAYER_ALPHA).into(),
+                        Layer::Movement => Color::rgba(0.2, 1., 0.2, SELECT_LAYER_ALPHA),
+                        _ => Color::WHITE,
+                    }),
                     ..default()
                 });
 
                 match layer {
                     Layer::Select => {
                         tile.insert(SelectTile);
+                    }
+                    Layer::Movement => {
+                        tile.insert(MovementTile);
                     }
                     Layer::Terrain => {
                         tile.insert(TerrainTile);
@@ -96,12 +103,13 @@ fn init_map(mut commands: Commands, assets: Res<MapAssets>) {
             size: map_size,
             storage: tile_storage,
             texture: TilemapTexture(match layer {
-                Layer::Select => assets.select.clone(),
+                Layer::Select | Layer::Movement => assets.select.clone(),
                 Layer::Terrain => assets.terrain.clone(),
             }),
             tile_size,
             transform: Transform::from_translation(Vec2::ZERO.extend(match layer {
                 Layer::Select => SELECT_LAYER_Z,
+                Layer::Movement => MOVEMENT_LAYER_Z,
                 Layer::Terrain => TERRAIN_LAYER_Z,
             })),
             ..default()
