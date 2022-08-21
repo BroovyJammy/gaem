@@ -26,6 +26,14 @@ impl InsectPartKind {
             _ => 0,
         }
     }
+
+    fn max_health(self) -> u32 {
+        match self {
+            Self::Flesh => 3,
+            Self::Head => 2,
+            Self::Legs => 2,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -33,6 +41,7 @@ pub struct InsectPart {
     pub position: (u32, u32),
     pub kind: InsectPartKind,
     pub rotation: PartDirection,
+    pub health: u32,
 }
 impl InsectPart {
     pub fn new(pos: (u32, u32), kind: InsectPartKind, rot: PartDirection) -> Self {
@@ -40,6 +49,7 @@ impl InsectPart {
             position: pos,
             kind,
             rotation: rot,
+            health: kind.max_health(),
         }
     }
 }
