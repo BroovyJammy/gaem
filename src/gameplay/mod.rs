@@ -47,12 +47,28 @@ impl Plugin for GameplayPlugin {
                                 .insert_bundle(TransformBundle { ..default() })
                                 .insert(UnitPos(UVec2::new(x, y)))
                                 .insert(InsectBody {
-                                    parts: Box::new([InsectPart {
-                                        kind: InsectPartKind::Flesh,
-                                        position: (0, 0),
-                                        rotation: PartDirection::Up,
-                                    }]),
-                                    used_tiles: std::collections::HashSet::from([(0, 0)]),
+                                    parts: Box::new([
+                                        InsectPart {
+                                            kind: InsectPartKind::Head,
+                                            position: (0, 0),
+                                            rotation: PartDirection::Down,
+                                        },
+                                        InsectPart {
+                                            kind: InsectPartKind::Flesh,
+                                            position: (0, 1),
+                                            rotation: PartDirection::Up,
+                                        },
+                                        InsectPart {
+                                            kind: InsectPartKind::Legs,
+                                            position: (1, 1),
+                                            rotation: PartDirection::Right,
+                                        },
+                                    ]),
+                                    used_tiles: std::collections::HashSet::from([
+                                        (0, 0),
+                                        (0, 1),
+                                        (1, 1),
+                                    ]),
                                 })
                                 .insert_bundle(TilemapBundle {
                                     grid_size,
@@ -122,21 +138,21 @@ impl Plugin for GameplayPlugin {
 #[derive(Clone, Copy, Deref)]
 struct SelectedUnit(Entity);
 
-#[derive(Component, Deref)]
-struct UnitPos(UVec2);
+#[derive(Component, Deref, Copy, Clone, Debug, Eq, PartialEq)]
+pub struct UnitPos(UVec2);
 
 fn select_unit(
     mut commands: Commands,
     mut selected_tiles: EventReader<TileSelected>,
     selected_unit: Option<Res<SelectedUnit>>,
-    units: Query<(Entity, &UnitPos)>,
+    units: Query<(Entity, &UnitPos, &InsectBody)>,
 ) {
     let selected_unit = selected_unit.map(|unit| **unit);
 
     // `.last()` bc it's better to eat simultaneous inputs than cause weird bugs
     if let Some(selected_tile) = selected_tiles.iter().last() {
-        for (unit, unit_pos) in &units {
-            if **unit_pos == **selected_tile {
+        for (unit, pos, body) in &units {
+            if body.contains_tile(*pos, **selected_tile) {
                 // There's a unit on this tile!
                 if Some(unit) == selected_unit {
                     // The unit is already selected. Unselect it.
@@ -152,12 +168,15 @@ fn select_unit(
 fn move_unit(
     mut commands: Commands,
     mut selecteds: EventReader<TileSelected>,
-    mut units: Query<&mut UnitPos>,
+    mut units: Query<(&mut UnitPos, &InsectBody)>,
     selected_unit: Res<SelectedUnit>,
 ) {
     if let Some(selected) = selecteds.iter().last() {
-        if !units.iter().any(|unit_pos| **unit_pos == **selected) {
-            let mut move_unit_from = units.get_mut(**selected_unit).unwrap();
+        if !units
+            .iter()
+            .any(|(unit_pos, body)| body.contains_tile(*unit_pos, **selected))
+        {
+            let (mut move_unit_from, _) = units.get_mut(**selected_unit).unwrap();
             let move_unit_to = selected.0;
             move_unit_from.0 = move_unit_to;
             commands.remove_resource::<SelectedUnit>();
