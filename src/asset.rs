@@ -23,8 +23,6 @@ impl Plugin for AssetsPlugin {
 pub struct MapAssets {
     #[asset(key = "image.select")]
     pub select: Handle<Image>,
-    #[asset(key = "image.unit")]
-    pub unit: Handle<Image>,
     #[asset(key = "image.terrain")]
     pub terrain: Handle<Image>,
     #[asset(key = "image.insect")]

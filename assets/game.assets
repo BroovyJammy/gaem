@@ -2,9 +2,6 @@
     "image.select": File (
         path: "image/tile/select.png",
     ),
-    "image.unit": File (
-        path: "image/tile/unit.png",
-    ),
     "image.terrain": File (
         path: "image/tile/terrain.png",
     ),
