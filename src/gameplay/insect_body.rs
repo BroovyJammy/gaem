@@ -40,6 +40,18 @@ impl InsectBody {
         let tile = tile - insect_position.0;
         self.used_tiles.contains(&(tile.x, tile.y))
     }
+
+    pub fn _intersects(
+        &self,
+        insect_position: UnitPos,
+        other_insect: &InsectBody,
+        other_insect_position: UnitPos,
+    ) -> bool {
+        other_insect.used_tiles.iter().any(|(x, y)| {
+            let pos = UVec2::new(x + other_insect_position.x, y + other_insect_position.y);
+            self.contains_tile(insect_position, pos)
+        })
+    }
 }
 
 pub fn update_insect_body_tilemap(

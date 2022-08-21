@@ -167,17 +167,26 @@ fn select_unit(
 
 fn move_unit(
     mut commands: Commands,
-    mut selecteds: EventReader<TileSelected>,
-    mut units: Query<(&mut UnitPos, &InsectBody)>,
+    mut tile_selected: EventReader<TileSelected>,
+    mut units: Query<(Entity, &mut UnitPos, &InsectBody)>,
     selected_unit: Res<SelectedUnit>,
 ) {
-    if let Some(selected) = selecteds.iter().last() {
-        if !units
-            .iter()
-            .any(|(unit_pos, body)| body.contains_tile(*unit_pos, **selected))
-        {
-            let (mut move_unit_from, _) = units.get_mut(**selected_unit).unwrap();
-            let move_unit_to = selected.0;
+    if let Some(selected_tile) = tile_selected.iter().last() {
+        let (_, _, selected_body) = units.get(selected_unit.0).unwrap();
+        if !units.iter().any(|(unit_entity, unit_pos, body)| {
+            if unit_entity == selected_unit.0 {
+                return false;
+            }
+
+            selected_body.used_tiles.iter().any(|(x, y)| {
+                body.contains_tile(
+                    *unit_pos,
+                    UVec2::new(x + selected_tile.x, y + selected_tile.y),
+                )
+            })
+        }) {
+            let (_, mut move_unit_from, _) = units.get_mut(**selected_unit).unwrap();
+            let move_unit_to = selected_tile.0;
             move_unit_from.0 = move_unit_to;
             commands.remove_resource::<SelectedUnit>();
         }
