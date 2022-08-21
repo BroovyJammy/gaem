@@ -19,6 +19,7 @@ impl Plugin for AssetsPlugin {
         );
         app.add_plugin(TomlAssetPlugin::<BodyPartAsset>::new(&["bodypart.toml"]));
         // app.add_system_to_stage(CoreStage::Last, debug_progress.run_in_state(AppState::AssetsLoading));
+        // app.add_enter_system(AppState::Game, debug_bodyparts);
     }
 }
 
@@ -52,6 +53,8 @@ pub struct BodyParts(Vec<BodyPartDescriptor>);
 #[derive(serde::Deserialize)]
 pub struct BodyPartDescriptor {
     index: u32,
+    max_health: u32,
+    pivot: Vec2,
     // TODO: add more stuff here
     // kind: crate::gameplay::insect_body::InsectPartKind,
 }
@@ -100,4 +103,11 @@ fn debug_progress(counter: Res<ProgressCounter>) {
     debug!("Progress: {}/{}", progress.done, progress.total);
     let progress = counter.progress_complete();
     debug!("Full Progress: {}/{}", progress.done, progress.total);
+}
+
+#[allow(dead_code)]
+fn debug_bodyparts(
+    bp: Res<BodyParts>,
+) {
+    dbg!(&bp.0);
 }

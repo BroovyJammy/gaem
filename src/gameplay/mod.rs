@@ -10,7 +10,7 @@ use leafwing_input_manager::user_input::InputKind;
 use self::insect_body::UpdateBody;
 pub struct GameplayPlugin;
 
-mod insect_body;
+pub mod insect_body;
 
 impl Plugin for GameplayPlugin {
     fn build(&self, app: &mut App) {

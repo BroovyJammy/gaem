@@ -1,0 +1,12 @@
+[[bodypart]]
+index = 0
+max_health = 3
+pivot = [ 0.0, 0.0 ]
+[[bodypart]]
+index = 1
+max_health = 2
+pivot = [ 0.0, 0.0 ]
+[[bodypart]]
+index = 2
+max_health = 1
+pivot = [ 0.0, 0.0 ]
