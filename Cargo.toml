@@ -5,6 +5,7 @@ edition = "2021"
 
 [features]
 dynamic = ["bevy/dynamic"]
+wasm = ["bevy_ecs_tilemap/atlas"]
 
 [dependencies.bevy]
 version = "0.8.0"
