@@ -18,6 +18,15 @@ pub enum InsectPartKind {
     Legs = 2,
 }
 
+impl InsectPartKind {
+    fn move_bonus(self) -> u32 {
+        match self {
+            Self::Legs => 2,
+            _ => 0,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct InsectPart {
     pub position: (u32, u32),
@@ -51,6 +60,14 @@ impl InsectBody {
             let pos = UVec2::new(x + other_insect_position.x, y + other_insect_position.y);
             self.contains_tile(insect_position, pos)
         })
+    }
+
+    pub fn move_speed(&self) -> u32 {
+        3 + self
+            .parts
+            .iter()
+            .map(|part| part.kind.move_bonus())
+            .sum::<u32>()
     }
 }
 

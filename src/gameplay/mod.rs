@@ -187,19 +187,23 @@ fn move_unit(
     selected_unit: Res<SelectedUnit>,
 ) {
     if let Some(selected_tile) = tile_selected.iter().last() {
-        let (_, _, selected_body) = units.get(selected_unit.0).unwrap();
-        if !units.iter().any(|(unit_entity, unit_pos, body)| {
-            if unit_entity == selected_unit.0 {
-                return false;
-            }
+        let (_, move_unit_from, selected_body) = units.get(selected_unit.0).unwrap();
+        let move_dist = selected_tile.as_ivec2() - move_unit_from.as_ivec2();
 
-            selected_body.used_tiles.iter().any(|(x, y)| {
-                body.contains_tile(
-                    *unit_pos,
-                    UVec2::new(x + selected_tile.x, y + selected_tile.y),
-                )
+        if (move_dist.x.abs() + move_dist.y.abs()) as u32 <= selected_body.move_speed()
+            && !units.iter().any(|(unit_entity, unit_pos, body)| {
+                if unit_entity == selected_unit.0 {
+                    return false;
+                }
+
+                selected_body.used_tiles.iter().any(|(x, y)| {
+                    body.contains_tile(
+                        *unit_pos,
+                        UVec2::new(x + selected_tile.x, y + selected_tile.y),
+                    )
+                })
             })
-        }) {
+        {
             let (_, mut move_unit_from, _) = units.get_mut(**selected_unit).unwrap();
             let move_unit_to = selected_tile.0;
             move_unit_from.0 = move_unit_to;
