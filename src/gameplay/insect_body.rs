@@ -354,14 +354,43 @@ pub fn merge_insect_bodies(
         let offset_x = (a_flesh.position.0 + pad_x_start) - b_flesh.position.0;
         let offset_y = (a_flesh.position.1 + pad_y_start) - b_flesh.position.1;
         let new_pos = (part.position.0 + offset_x, part.position.1 + offset_y);
-        if let Some(_existing_part) = wip_insect_parts
+        if let Some(existing_part) = wip_insect_parts
             .iter_mut()
             .find(|part| part.position == new_pos)
         {
-            // *existing_part = InsectPart {
-            //     position: new_pos,
-            //     ..*part
-            // };
+            // we want to ensure that both units are still "well formed" i.e. do not have any detached
+            // parts after the merging process. to ensure this, whenever we would place a part overlapping
+            // another part, we first check if the existing part has a superset of the connections that the
+            // part we are placing has. If it does we don't overwrite it, if both of the two parts have
+            // a connection that the other does not, then we ''upgrade'' the part to a piece of flesh which has
+            // all 4 connections.
+
+            let existing_part_connections = stats[existing_part.kind]
+                .connections
+                .iter()
+                .map(|&c| existing_part.rotation.rotate_ivec(c))
+                .collect::<HashSet<IVec2>>();
+            let incoming_part_connections = stats[part.kind]
+                .connections
+                .iter()
+                .map(|&c| part.rotation.rotate_ivec(c))
+                .collect::<HashSet<IVec2>>();
+
+            if existing_part_connections.is_subset(&incoming_part_connections) {
+                *existing_part = InsectPart {
+                    position: new_pos,
+                    ..*part
+                };
+            } else if incoming_part_connections.is_subset(&existing_part_connections) {
+                // do nothing
+            } else {
+                *existing_part = InsectPart {
+                    position: new_pos,
+                    kind: InsectPartKind(0), // spider flesh
+                    rotation: part.rotation,
+                    health: stats[InsectPartKind(0)].max_health,
+                }
+            }
             continue;
         };
 
