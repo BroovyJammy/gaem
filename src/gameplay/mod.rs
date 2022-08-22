@@ -98,8 +98,12 @@ impl Plugin for GameplayPlugin {
 }
 
 // Resource that only exists when a unit is selected
-#[derive(Clone, Copy, Deref)]
-struct SelectedUnit(Entity);
+#[derive(Clone, Copy)]
+struct SelectedUnit {
+    unit: Entity,
+    /// Records which tile `unit` was clicked on at
+    at_local_pos: UVec2,
+}
 
 #[derive(Component, Deref, Copy, Clone, Debug, Eq, PartialEq)]
 pub struct UnitPos(UVec2);
@@ -196,7 +200,7 @@ fn select_unit(
     selected_unit: Option<Res<SelectedUnit>>,
     units: Query<(Entity, &UnitPos, &InsectBody, &Team)>,
 ) {
-    let selected_unit = selected_unit.map(|unit| **unit);
+    let selected_unit = selected_unit.map(|unit| unit.unit);
 
     // `.last()` bc it's better to eat simultaneous inputs than cause weird bugs
     if let Some(selected_tile) = selected_tiles.iter().last() {
@@ -207,7 +211,10 @@ fn select_unit(
                     // The unit is already selected, or clicked on a baddie. Unselect.
                     commands.remove_resource::<SelectedUnit>();
                 } else {
-                    commands.insert_resource(SelectedUnit(unit));
+                    commands.insert_resource(SelectedUnit {
+                        unit,
+                        at_local_pos: selected_tile.0 - pos.0,
+                    });
                 }
             }
         }
@@ -217,6 +224,7 @@ fn select_unit(
 fn can_move_unit<'a>(
     mover: Entity,
     mover_body: &InsectBody,
+    grab_point: UVec2,
     from: UVec2,
     to: UVec2,
     units: impl IntoIterator<Item = (Entity, &'a UnitPos, &'a InsectBody)>,
@@ -229,10 +237,16 @@ fn can_move_unit<'a>(
                 return false;
             }
 
-            mover_body
-                .used_tiles
-                .iter()
-                .any(|(x, y)| body.contains_tile(*unit_pos, UVec2::new(x + to.x, y + to.y)))
+            mover_body.used_tiles.iter().any(|(x, y)| {
+                if x + to.x < grab_point.x || y + to.y < grab_point.y {
+                    return false;
+                }
+
+                body.contains_tile(
+                    *unit_pos,
+                    UVec2::new(x + to.x - grab_point.x, y + to.y - grab_point.y),
+                )
+            })
         })
 }
 
@@ -241,10 +255,17 @@ fn highlight_movable_tiles(
     mut movement_tiles: Query<(&mut TileTexture, &TilePos), With<MovementTile>>,
     selected_unit: Res<SelectedUnit>,
 ) {
-    let (_, unit_pos, body) = units.get(**selected_unit).unwrap();
+    let (_, unit_pos, body) = units.get(selected_unit.unit).unwrap();
 
     for (mut texture, tile_pos) in &mut movement_tiles {
-        if can_move_unit(**selected_unit, body, **unit_pos, tile_pos.into(), &units) {
+        if can_move_unit(
+            selected_unit.unit,
+            body,
+            selected_unit.at_local_pos,
+            **unit_pos,
+            tile_pos.into(),
+            &units,
+        ) {
             *texture = Select::Active.into();
         }
     }
@@ -257,18 +278,19 @@ fn move_unit(
     selected_unit: Res<SelectedUnit>,
 ) {
     if let Some(selected_tile) = tile_selected.iter().last() {
-        let (_, move_unit_from, selected_body) = units.get(selected_unit.0).unwrap();
+        let (_, move_unit_from, selected_body) = units.get(selected_unit.unit).unwrap();
 
         if can_move_unit(
-            **selected_unit,
+            selected_unit.unit,
             selected_body,
+            selected_unit.at_local_pos,
             **move_unit_from,
             **selected_tile,
             &units,
         ) {
-            let (_, mut move_unit_from, _) = units.get_mut(**selected_unit).unwrap();
-            let move_unit_to = selected_tile.0;
-            move_unit_from.0 = move_unit_to;
+            let (_, mut unit_pos, _) = units.get_mut(selected_unit.unit).unwrap();
+            let move_unit_to = selected_tile.0 - selected_unit.at_local_pos;
+            unit_pos.0 = move_unit_to;
             commands.remove_resource::<SelectedUnit>();
         }
     }
