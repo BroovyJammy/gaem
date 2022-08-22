@@ -170,10 +170,16 @@ fn insert_units(mut commands: Commands, stats: Res<BodyParts>) {
                     InsectPart::new((0, 1), InsectPartKind(0), PartDirection::Up, &stats),
                     InsectPart::new((1, 1), InsectPartKind(2), PartDirection::Right, &stats),
                 ]);
+                let src_3 = InsectBody::new(vec![
+                    InsectPart::new((0, 1), InsectPartKind(5), PartDirection::Left, &stats),
+                    InsectPart::new((1, 1), InsectPartKind(7), PartDirection::Up, &stats),
+                    InsectPart::new((1, 0), InsectPartKind(6), PartDirection::Down, &stats),
+                    InsectPart::new((1, 2), InsectPartKind(4), PartDirection::Right, &stats),
+                ]);
                 let seed = seeds.pop().unwrap_or_else(|| rand::thread_rng().gen());
                 debug!(seed);
                 insect_body::generate_body(
-                    &[src_1, src_2],
+                    &[src_1, src_2, src_3],
                     4,
                     &mut StdRng::seed_from_u64(seed),
                     &stats,
