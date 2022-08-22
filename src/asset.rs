@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::{gameplay::insect_body::InsectPartKind, prelude::*};
 use bevy_asset_loader::prelude::*;
 use bevy_common_assets::toml::TomlAssetPlugin;
 
@@ -19,7 +19,7 @@ impl Plugin for AssetsPlugin {
         );
         app.add_plugin(TomlAssetPlugin::<BodyPartAsset>::new(&["bodypart.toml"]));
         // app.add_system_to_stage(CoreStage::Last, debug_progress.run_in_state(AppState::AssetsLoading));
-        // app.add_enter_system(AppState::Game, debug_bodyparts);
+        app.add_enter_system(AppState::Game, debug_bodyparts);
     }
 }
 
@@ -47,15 +47,23 @@ pub struct UiAssets {
 ///
 /// Contains all the body part descriptors loaded from asset files
 #[derive(Deref)]
-pub struct BodyParts(Vec<BodyPartDescriptor>);
+pub struct BodyParts(pub Vec<BodyPartDescriptor>);
 
+impl std::ops::Index<InsectPartKind> for BodyParts {
+    type Output = BodyPartDescriptor;
+    fn index(&self, index: InsectPartKind) -> &Self::Output {
+        &self.0[index.0]
+    }
+}
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct BodyPartDescriptor {
-    index: u32,
-    max_health: u32,
-    pivot: Vec2,
-    // TODO: add more stuff here
-    // kind: crate::gameplay::insect_body::InsectPartKind,
+    pub name: String,
+    pub max_health: u32,
+    pub move_bonus: u32,
+    pub damage: u32,
+    pub sprite_idx: usize,
+    pub connections: Vec<Vec2>,
+    pub pivot: Vec2,
 }
 
 // [INTERNAL THINGS BELOW] //

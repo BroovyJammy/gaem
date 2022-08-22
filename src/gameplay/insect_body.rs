@@ -5,7 +5,10 @@ use bevy::{
 };
 use rand::{rngs::StdRng, Rng};
 
-use crate::{asset::MapAssets, map::TILE_SIZE};
+use crate::{
+    asset::{BodyParts, MapAssets},
+    map::TILE_SIZE,
+};
 
 use super::{Team, UnitPos};
 
@@ -34,35 +37,7 @@ impl PartDirection {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum InsectPartKind {
-    Flesh = 0,
-    Head = 1,
-    Legs = 2,
-}
-
-impl InsectPartKind {
-    fn move_bonus(self) -> u32 {
-        match self {
-            Self::Legs => 3,
-            _ => 0,
-        }
-    }
-
-    fn max_health(self) -> u32 {
-        match self {
-            Self::Flesh => 3,
-            Self::Head => 2,
-            Self::Legs => 2,
-        }
-    }
-
-    pub fn damage(self) -> u32 {
-        match self {
-            Self::Head => 1,
-            _ => 0,
-        }
-    }
-}
+pub struct InsectPartKind(pub usize);
 
 #[derive(Debug, Clone, Copy)]
 pub struct InsectPart {
@@ -72,12 +47,17 @@ pub struct InsectPart {
     pub health: u32,
 }
 impl InsectPart {
-    pub fn new(pos: (u32, u32), kind: InsectPartKind, rot: PartDirection) -> Self {
+    pub fn new(
+        pos: (u32, u32),
+        kind: InsectPartKind,
+        rot: PartDirection,
+        stats: &BodyParts,
+    ) -> Self {
         Self {
             position: pos,
             kind,
             rotation: rot,
-            health: kind.max_health(),
+            health: stats.0[kind.0].max_health,
         }
     }
 }
@@ -104,10 +84,10 @@ impl InsectBody {
         self.used_tiles.contains(&(tile.x as u32, tile.y as u32))
     }
 
-    pub fn max_move_cap(&self) -> u32 {
+    pub fn max_move_cap(&self, stats: &BodyParts) -> u32 {
         self.parts
             .iter()
-            .map(|part| part.kind.move_bonus())
+            .map(|part| stats[part.kind].move_bonus)
             .sum::<u32>()
     }
 
@@ -205,6 +185,7 @@ pub fn update_insect_body_tilemap(
     mut cmds: Commands<'_, '_>,
     mut insects: Query<(Entity, &InsectBody, &Team, &mut InsectRenderEntities), With<UpdateBody>>,
     assets: Res<MapAssets>,
+    stats: Res<BodyParts>,
 ) {
     for (entity, body, team, mut render_body_parts) in insects.iter_mut() {
         for child in render_body_parts.body_part.values() {
@@ -222,7 +203,7 @@ pub fn update_insect_body_tilemap(
                     let body_part = child_builder
                         .spawn_bundle(SpriteSheetBundle {
                             sprite: TextureAtlasSprite {
-                                index: part.kind as usize,
+                                index: stats[part.kind].sprite_idx,
                                 color: team.color(),
                                 anchor: Anchor::Center,
                                 ..default()
@@ -257,7 +238,8 @@ pub fn update_insect_body_tilemap(
                                     TILE_SIZE as f32,
                                     TILE_SIZE as f32
                                         - (TILE_SIZE as f32
-                                            * (part.health as f32 / part.kind.max_health() as f32)),
+                                            * (part.health as f32
+                                                / stats[part.kind].max_health as f32)),
                                 )),
                                 anchor: Anchor::BottomLeft,
                             },
@@ -287,14 +269,14 @@ pub fn merge_insect_bodies(a: &InsectBody, b: &InsectBody, rng: &mut StdRng) -> 
 
     let filter = |body: &InsectBody, part: &&InsectPart| {
         match part.kind {
-            InsectPartKind::Flesh => (),
-            InsectPartKind::Head | InsectPartKind::Legs => return false,
+            InsectPartKind(0 | 3) => (),
+            InsectPartKind(_) => return false,
         };
 
         body.adjacent_parts(part.position)
             .any(|opt_part| match opt_part {
                 None => true,
-                Some(part) => matches!(part.kind, InsectPartKind::Head | InsectPartKind::Legs),
+                Some(part) => matches!(part.kind, InsectPartKind(1 | 2)),
             })
     };
 
@@ -334,26 +316,19 @@ pub fn merge_insect_bodies(a: &InsectBody, b: &InsectBody, rng: &mut StdRng) -> 
         })
     }
 
-    use InsectPartKind::*;
     for part in b.parts.iter() {
         let offset_x = (a_flesh.position.0 + pad_x_start) - b_flesh.position.0;
         let offset_y = (a_flesh.position.1 + pad_y_start) - b_flesh.position.1;
         let new_pos = (part.position.0 + offset_x, part.position.1 + offset_y);
-        match wip_insect_parts
+        if let Some(existing_part) = wip_insect_parts
             .iter_mut()
             .find(|part| part.position == new_pos)
         {
-            None => (),
-            Some(existing_part) => match (existing_part.kind, part.kind) {
-                (Flesh, Head | Legs) => continue,
-                (Flesh, Flesh) | (Head, _) | (Legs, _) => {
-                    *existing_part = InsectPart {
-                        position: new_pos,
-                        ..*part
-                    };
-                    continue;
-                }
-            },
+            *existing_part = InsectPart {
+                position: new_pos,
+                ..*part
+            };
+            continue;
         };
 
         wip_insect_parts.push(InsectPart {

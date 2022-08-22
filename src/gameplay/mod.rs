@@ -1,3 +1,4 @@
+use crate::asset::BodyParts;
 use crate::gameplay::insect_body::{InsectPart, InsectPartKind, PartDirection};
 use crate::map::tile::{MovementTile, Select, SelectTile};
 use crate::map::{Layer, LayerToMap};
@@ -135,7 +136,7 @@ impl Team {
 }
 
 // Temporary (moved to fn since it grew)
-fn insert_units(mut commands: Commands) {
+fn insert_units(mut commands: Commands, stats: Res<BodyParts>) {
     let mut team = true;
     let mut to_spawn = 99;
     let mut seeds = vec![];
@@ -160,20 +161,20 @@ fn insert_units(mut commands: Commands) {
 
             let body = {
                 let src_1 = InsectBody::new(vec![
-                    InsectPart::new((0, 0), InsectPartKind::Head, PartDirection::Down),
-                    InsectPart::new((0, 1), InsectPartKind::Flesh, PartDirection::Up),
-                    InsectPart::new((1, 1), InsectPartKind::Flesh, PartDirection::Right),
+                    InsectPart::new((0, 0), InsectPartKind(1), PartDirection::Down, &stats),
+                    InsectPart::new((0, 1), InsectPartKind(0), PartDirection::Up, &stats),
+                    InsectPart::new((1, 1), InsectPartKind(0), PartDirection::Right, &stats),
                 ]);
                 let src_2 = InsectBody::new(vec![
-                    InsectPart::new((0, 0), InsectPartKind::Flesh, PartDirection::Down),
-                    InsectPart::new((0, 1), InsectPartKind::Flesh, PartDirection::Up),
-                    InsectPart::new((1, 1), InsectPartKind::Legs, PartDirection::Right),
+                    InsectPart::new((0, 0), InsectPartKind(0), PartDirection::Down, &stats),
+                    InsectPart::new((0, 1), InsectPartKind(0), PartDirection::Up, &stats),
+                    InsectPart::new((1, 1), InsectPartKind(2), PartDirection::Right, &stats),
                 ]);
                 let seed = seeds.pop().unwrap_or_else(|| rand::thread_rng().gen());
                 debug!(seed);
                 insect_body::generate_body(&[src_1, src_2], 4, &mut StdRng::seed_from_u64(seed))
             };
-            let move_cap = MoveCap(body.max_move_cap());
+            let move_cap = MoveCap(body.max_move_cap(&stats));
 
             commands
                 .spawn()
@@ -518,6 +519,7 @@ fn move_enemy_unit(
     mut units: Query<(Entity, &mut UnitPos, &InsectBody, &MoveCap, &Team)>,
     movement_tiles: Query<&TilePos, With<MovementTile>>,
     time: Res<Time>,
+    stats: Res<BodyParts>,
 ) {
     // Looks better to move units one-by-one
     // Decreased to 1 ms now that it's laggy
@@ -564,9 +566,9 @@ fn move_enemy_unit(
 
                             if delta.x.abs() + delta.y.abs() == 1 {
                                 // Adjacent
-                                score += part.kind.damage() as i32
+                                score += stats[part.kind].damage as i32
                                     * ((*other_team == Team::Goodie) as i32 * 2 - 1)
-                                    - other_part.kind.damage() as i32;
+                                    - stats[other_part.kind].damage as i32;
                             }
                         }
                     }
@@ -594,8 +596,8 @@ fn move_enemy_unit(
 
 fn attack(
     attacking_team: Team,
-) -> impl Fn(Commands, Query<(Entity, &UnitPos, &mut InsectBody, &Team)>) {
-    move |mut commands, mut units| {
+) -> impl Fn(Commands, Query<(Entity, &UnitPos, &mut InsectBody, &Team)>, Res<BodyParts>) {
+    move |mut commands, mut units, stats| {
         let mut attacks = Vec::default();
 
         // avoid using `iter_combinations` because it wont yield both `(enemy, player)` and `(player, enemy)`
@@ -606,7 +608,7 @@ fn attack(
                 }
 
                 for attacker_part in attacker_body.parts.iter() {
-                    let damage = attacker_part.kind.damage();
+                    let damage = stats[attacker_part.kind].damage;
 
                     if damage == 0 {
                         continue;
@@ -659,7 +661,7 @@ fn attack(
             let mut to_visit = body
                 .parts
                 .iter()
-                .filter_map(|part| (part.kind == InsectPartKind::Head).then(|| part.position))
+                .filter_map(|part| (part.kind == InsectPartKind(1)).then(|| part.position))
                 .enumerate()
                 .collect::<Vec<_>>();
             let mut clusters = (0..to_visit.len())
@@ -756,11 +758,13 @@ fn attack(
     }
 }
 
-pub fn replenish_move_cap(team: Team) -> impl Fn(Query<(&Team, &InsectBody, &mut MoveCap)>) {
-    move |mut query| {
+pub fn replenish_move_cap(
+    team: Team,
+) -> impl Fn(Query<(&Team, &InsectBody, &mut MoveCap)>, Res<BodyParts>) {
+    move |mut query, stats| {
         for (unit_team, body, mut move_cap) in query.iter_mut() {
             if *unit_team == team {
-                move_cap.0 = body.max_move_cap();
+                move_cap.0 = body.max_move_cap(&stats);
             }
         }
     }
