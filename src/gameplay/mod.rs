@@ -6,6 +6,7 @@ use crate::{gameplay::insect_body::InsectBody, prelude::*};
 use bevy::utils::HashSet;
 use leafwing_input_manager::user_input::InputKind;
 use rand::rngs::StdRng;
+use rand::seq::SliceRandom;
 use rand::{Rng, SeedableRng};
 
 use self::insect_body::{InsectRenderEntities, UpdateBody};
@@ -80,14 +81,15 @@ impl Plugin for GameplayPlugin {
                     .run_in_state(Turn::goodie()),
             )
             .add_system(
-                enemy_turn
+                move_enemy_unit
                     .run_in_state(AppState::Game)
                     .run_in_state(Turn::baddie()),
             )
             .add_exit_system(Turn::goodie(), attack(Team::Goodie))
             .add_exit_system(Turn::baddie(), attack(Team::Baddie))
             .add_exit_system(Turn::goodie(), replenish_move_cap(Team::Baddie))
-            .add_exit_system(Turn::baddie(), replenish_move_cap(Team::Goodie));
+            .add_exit_system(Turn::baddie(), replenish_move_cap(Team::Goodie))
+            .add_enter_system(Turn::baddie(), mark_movables);
     }
 }
 
@@ -99,7 +101,7 @@ struct SelectedUnit {
     at_local_pos: UVec2,
 }
 
-#[derive(Component, Deref, Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Component, Deref, DerefMut, Copy, Clone, Debug, Eq, PartialEq)]
 pub struct UnitPos(IVec2);
 
 #[derive(Clone, Component, Copy, Debug, Eq, Hash, PartialEq)]
@@ -198,7 +200,7 @@ fn handle_select_action(
     selected_unit: Option<Res<SelectedUnit>>,
     mut units: Query<(Entity, &mut UnitPos, &InsectBody, &Team, &mut MoveCap)>,
 ) {
-    if actioners.single().just_pressed(Action::Select) == false {
+    if !actioners.single().just_pressed(Action::Select) {
         return;
     }
     tile_selected_writer.send(TileSelected(cursor_pos.pos));
@@ -493,16 +495,100 @@ fn end_turn(mut commands: Commands, actioners: Query<&ActionState<Action>>) {
     }
 }
 
-#[derive(Default, Deref, DerefMut)]
-struct UselessTimer(Duration);
+#[derive(Component)]
+#[component(storage = "SparseSet")]
+struct MoveMe;
 
-fn enemy_turn(mut commands: Commands, mut useless_timer: Local<UselessTimer>, time: Res<Time>) {
-    // Nothing to do yet
-    if **useless_timer > Duration::from_secs(1) {
-        **useless_timer = default();
-        commands.insert_resource(NextState(Turn::goodie()));
+fn mark_movables(mut commands: Commands, units: Query<(Entity, &Team)>) {
+    for (unit, team) in &units {
+        if *team == Team::Baddie {
+            commands.entity(unit).insert(MoveMe);
+        }
+    }
+}
+
+#[derive(Default, Deref, DerefMut)]
+struct UsefulTimer(Duration);
+
+// AI might be too hard lol
+fn move_enemy_unit(
+    mut commands: Commands,
+    mut useful_timer: Local<UsefulTimer>,
+    move_me: Query<Entity, With<MoveMe>>,
+    mut units: Query<(Entity, &mut UnitPos, &InsectBody, &MoveCap, &Team)>,
+    movement_tiles: Query<&TilePos, With<MovementTile>>,
+    time: Res<Time>,
+) {
+    // Looks better to move units one-by-one
+    // Decreased to 1 ms now that it's laggy
+    if **useful_timer > Duration::from_millis(1) {
+        **useful_timer -= Duration::from_millis(1);
+
+        if let Some((unit, unit_pos, body, move_cap, _)) =
+            move_me.iter().next().map(|unit| units.get(unit).unwrap())
+        {
+            let mut movement_tiles = movement_tiles.iter().collect::<Vec<_>>();
+            movement_tiles.shuffle(&mut rand::thread_rng());
+
+            // AI tries to deal the most and take the least damage per turn
+            let mut best_dest = **unit_pos;
+            let mut best_score = i32::MIN;
+
+            for tile_pos in &movement_tiles {
+                if !can_move_unit(
+                    unit,
+                    *move_cap,
+                    body,
+                    UVec2::ZERO,
+                    **unit_pos,
+                    UVec2::new(tile_pos.x, tile_pos.y).as_ivec2(),
+                    units.iter().map(|(a, b, c, _, _)| (a, b, c)),
+                ) {
+                    continue;
+                }
+
+                let mut score = 0;
+                for part in &body.parts {
+                    for (other, other_pos, other_body, _, other_team) in units.iter() {
+                        if unit == other {
+                            // Doesn't really matter mathematically,
+                            // but should make the scores make more sense during debug
+                            continue;
+                        }
+
+                        for other_part in &other_body.parts {
+                            let delta = (UVec2::new(tile_pos.x, tile_pos.y)
+                                + UVec2::from(part.position))
+                            .as_ivec2()
+                                - (**other_pos + UVec2::from(other_part.position).as_ivec2());
+
+                            if delta.x.abs() + delta.y.abs() == 1 {
+                                // Adjacent
+                                score += part.kind.damage() as i32
+                                    * ((*other_team == Team::Goodie) as i32 * 2 - 1)
+                                    - other_part.kind.damage() as i32;
+                            }
+                        }
+                    }
+                }
+
+                debug!("{score}");
+
+                if score > best_score {
+                    best_dest = UVec2::new(tile_pos.x, tile_pos.y).as_ivec2();
+                    best_score = score;
+                }
+            }
+
+            let (_, mut unit_pos, _, _, _) = units.get_mut(unit).unwrap();
+            **unit_pos = best_dest;
+            commands.entity(unit).remove::<MoveMe>();
+        } else {
+            // Everyone has moved
+            commands.insert_resource(NextState(Turn::goodie()));
+        }
     } else {
-        **useless_timer += time.delta();
+        **useful_timer += time.delta();
     }
 }
 
