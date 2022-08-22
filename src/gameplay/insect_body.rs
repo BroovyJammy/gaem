@@ -31,7 +31,7 @@ impl PartDirection {
     }
 
     pub fn rotate_ivec(&self, mut ivec: IVec2) -> IVec2 {
-        for _ in 0..=self.to_u8() {
+        for _ in 0..self.to_u8() {
             ivec = IVec2::new(-ivec.y, ivec.x)
         }
         ivec
@@ -418,4 +418,14 @@ pub fn generate_body(
         ),
     };
     merge_insect_bodies(&lhs, &rhs, rng, stats)
+}
+
+#[cfg(test)]
+#[test]
+fn rotation_works() {
+    let my_vec = IVec2::new(0, 1);
+    assert_eq!(PartDirection::Up.rotate_ivec(my_vec), IVec2::new(0, 1));
+    assert_eq!(PartDirection::Left.rotate_ivec(my_vec), IVec2::new(-1, 0));
+    assert_eq!(PartDirection::Down.rotate_ivec(my_vec), IVec2::new(0, -1));
+    assert_eq!(PartDirection::Right.rotate_ivec(my_vec), IVec2::new(1, 0));
 }
