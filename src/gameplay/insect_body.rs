@@ -282,6 +282,9 @@ pub fn update_insect_body_tilemap(
 }
 
 pub fn merge_insect_bodies(a: &InsectBody, b: &InsectBody, rng: &mut StdRng) -> InsectBody {
+    let dir = PartDirection::from_u8(rng.gen_range(0..4));
+    let b = b.make_new_rotated(dir);
+
     let filter = |body: &InsectBody, part: &&InsectPart| {
         match part.kind {
             InsectPartKind::Flesh => (),
@@ -312,7 +315,7 @@ pub fn merge_insect_bodies(a: &InsectBody, b: &InsectBody, rng: &mut StdRng) -> 
     }
 
     let a_flesh = pick_edge_flesh(filter, a, rng);
-    let b_flesh = pick_edge_flesh(filter, b, rng);
+    let b_flesh = pick_edge_flesh(filter, &b, rng);
 
     let mut pad_x_start = 0;
     let mut pad_y_start = 0;
@@ -332,8 +335,6 @@ pub fn merge_insect_bodies(a: &InsectBody, b: &InsectBody, rng: &mut StdRng) -> 
     }
 
     use InsectPartKind::*;
-    let dir = PartDirection::from_u8(rng.gen_range(0..4));
-    let b = b.make_new_rotated(dir);
     for part in b.parts.iter() {
         let offset_x = (a_flesh.position.0 + pad_x_start) - b_flesh.position.0;
         let offset_y = (a_flesh.position.1 + pad_y_start) - b_flesh.position.1;
