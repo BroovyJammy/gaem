@@ -8,4 +8,10 @@
     "font.light": File (
         path: "font/Sansation-Light.ttf",
     ),
+    "dating.spinderella": File (
+        path: "image/dating/spinderella.png",
+    ),
+    "dating.silkarella": File (
+        path: "image/dating/silkarella.png",
+    ),
 })

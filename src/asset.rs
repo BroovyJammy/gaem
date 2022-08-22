@@ -41,6 +41,10 @@ pub struct UiAssets {
     pub font_bold: Handle<Font>,
     #[asset(key = "font.light")]
     pub font_light: Handle<Font>,
+    #[asset(key = "dating.spinderella")]
+    pub spinderella: Handle<Image>,
+    #[asset(key = "dating.silkarella")]
+    pub silkarella: Handle<Image>,
 }
 
 /// This will be available as a resource

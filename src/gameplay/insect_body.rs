@@ -1,16 +1,11 @@
+use super::{map::TILE_SIZE, MoveCap, Team, UnitPos};
+use crate::asset::{BodyParts, MapAssets};
+use crate::prelude::*;
 use bevy::{
-    prelude::*,
     sprite::Anchor,
     utils::{HashMap, HashSet},
 };
 use rand::{rngs::StdRng, Rng};
-
-use crate::{
-    asset::{BodyParts, MapAssets},
-    map::TILE_SIZE,
-};
-
-use super::{MoveCap, Team, UnitPos};
 
 #[derive(Clone, Copy, Debug)]
 pub enum PartDirection {
@@ -53,6 +48,24 @@ pub struct InsectPart {
     pub rotation: PartDirection,
     pub health: u32,
 }
+
+#[derive(Component, Clone)]
+pub struct InsectBody {
+    pub parts: Vec<InsectPart>,
+    pub used_tiles: HashSet<(u32, u32)>,
+}
+
+#[derive(Component)]
+#[component(storage = "SparseSet")]
+pub struct UpdateBody;
+
+#[derive(Component)]
+/// Used to keep track of the render entities corresponding to each insect part
+pub struct InsectRenderEntities {
+    pub hp_bar: HashMap<(u32, u32), Entity>,
+    pub body_part: HashMap<(u32, u32), Entity>,
+}
+
 impl InsectPart {
     pub fn new(
         pos: (u32, u32),
@@ -67,32 +80,6 @@ impl InsectPart {
             health: stats.0[kind.0].max_health,
         }
     }
-
-    // pub fn connections(&self, stats: &BodyParts) -> Vec<PartDirection> {
-    //     stats[self.kind]
-    //         .connections
-    //         .iter()
-    //         .map(|&c| {
-    //             if c == IVec2::new(0, -1) {
-    //                 PartDirection::Down
-    //             } else if c == IVec2::new(0, 1) {
-    //                 PartDirection::Up
-    //             } else if c == IVec2::new(-1, 0) {
-    //                 PartDirection::Left
-    //             } else if c == IVec2::new(1, 0) {
-    //                 PartDirection::Right
-    //             } else {
-    //                 unreachable!()
-    //             }
-    //         })
-    //         .collect()
-    // }
-}
-
-#[derive(Component, Clone)]
-pub struct InsectBody {
-    pub parts: Vec<InsectPart>,
-    pub used_tiles: HashSet<(u32, u32)>,
 }
 
 impl InsectBody {
@@ -217,17 +204,6 @@ pub fn spawn_insect(
         })
         .insert(move_cap)
         .insert_bundle(VisibilityBundle { ..default() });
-}
-
-#[derive(Component)]
-#[component(storage = "SparseSet")]
-pub struct UpdateBody;
-
-#[derive(Component)]
-/// Used to keep track of the render entities corresponding to each insect part
-pub struct InsectRenderEntities {
-    pub hp_bar: HashMap<(u32, u32), Entity>,
-    pub body_part: HashMap<(u32, u32), Entity>,
 }
 
 pub fn update_insect_body_tilemap(

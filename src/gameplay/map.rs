@@ -1,18 +1,6 @@
 use crate::asset::MapAssets;
 use crate::prelude::*;
 
-use self::tile::{MovementTile, Select, SelectTile, Terrain, TerrainTile};
-
-pub mod tile;
-
-pub struct MapPlugin;
-
-impl Plugin for MapPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_enter_system(AppState::Game, init_map);
-    }
-}
-
 #[derive(Hash, Eq, Clone, Component, Copy, PartialEq)]
 pub enum Layer {
     Select,
@@ -22,6 +10,53 @@ pub enum Layer {
 
 #[derive(Deref)]
 pub struct LayerToMap(pub HashMap<Layer, Entity>);
+
+#[derive(Component)]
+pub struct SelectTile;
+
+// Should follow the order of `image/tile/select.png`. Converts to `TileTexture` with `as u32`.
+#[derive(Default)]
+pub enum Select {
+    Inactive,
+    #[default]
+    Active,
+}
+
+impl From<Select> for TileTexture {
+    fn from(select: Select) -> Self {
+        Self(select as u32)
+    }
+}
+
+#[derive(Component)]
+pub struct MovementTile;
+
+// See `image/tile/unit.png`
+pub enum Unit {
+    None,
+    Unit,
+}
+
+impl From<Unit> for TileTexture {
+    fn from(unit: Unit) -> Self {
+        Self(unit as u32)
+    }
+}
+
+#[derive(Component)]
+pub struct TerrainTile;
+
+// See `image/tile/terrain.png`
+pub enum Terrain {
+    Dirt,
+    Grass,
+}
+
+impl From<Terrain> for TileTexture {
+    fn from(terrain: Terrain) -> Self {
+        Self(terrain as u32)
+    }
+}
 
 // In tiles
 pub const MAP_SIZE: u32 = 64;
@@ -35,7 +70,7 @@ const TERRAIN_LAYER_Z: f32 = 0.;
 const SELECT_LAYER_ALPHA: f32 = 0.025;
 
 // Based on https://github.com/StarArawn/bevy_ecs_tilemap/blob/main/examples/basic.rs
-fn init_map(mut commands: Commands, assets: Res<MapAssets>) {
+pub fn init_map(mut commands: Commands, assets: Res<MapAssets>) {
     // Some common data between the layers
     let map_size = UVec2::splat(MAP_SIZE).into();
     let tile_size = Vec2::splat(TILE_SIZE as f32);

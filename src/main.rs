@@ -17,8 +17,8 @@ mod prelude {
 }
 
 mod asset;
+mod dating;
 mod gameplay;
-mod map;
 mod ui;
 
 use gameplay::{Team, Turn};
@@ -28,6 +28,7 @@ use crate::prelude::*;
 // Feel free to move this
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum AppState {
+    Dating,
     AssetsLoading,
     Game,
 }
@@ -75,7 +76,7 @@ fn main() {
     app.add_plugin(asset::AssetsPlugin);
     app.add_plugin(ui::UiPlugin);
     app.add_plugin(gameplay::GameplayPlugin);
-    app.add_plugin(map::MapPlugin);
+    dating::add_self_to_app(&mut app);
 
     // some debug diagnostics stuff
     #[cfg(debug_assertions)]

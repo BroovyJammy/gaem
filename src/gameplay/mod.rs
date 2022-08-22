@@ -1,8 +1,5 @@
 use crate::asset::BodyParts;
 use crate::gameplay::insect_body::{InsectPart, InsectPartKind, PartDirection};
-use crate::map::tile::{MovementTile, Select, SelectTile};
-use crate::map::{Layer, LayerToMap};
-use crate::map::{MAP_SIZE, TILE_SIZE};
 use crate::{gameplay::insect_body::InsectBody, prelude::*};
 use bevy::utils::HashSet;
 use leafwing_input_manager::user_input::InputKind;
@@ -10,10 +7,14 @@ use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
 use rand::{Rng, SeedableRng};
 
-use self::insect_body::{spawn_insect, UpdateBody};
-pub struct GameplayPlugin;
-
 pub mod insect_body;
+use insect_body::{spawn_insect, UpdateBody};
+pub mod map;
+use map::{Layer, LayerToMap, MovementTile, Select, SelectTile, MAP_SIZE, TILE_SIZE};
+
+use self::map::TerrainTile;
+
+pub struct GameplayPlugin;
 
 impl Plugin for GameplayPlugin {
     fn build(&self, app: &mut App) {
@@ -31,6 +32,7 @@ impl Plugin for GameplayPlugin {
         struct Thingy;
 
         app.add_enter_system(AppState::Game, insert_units)
+            .add_enter_system(AppState::Game, map::init_map)
             .add_system(
                 insect_body::update_insect_body_tilemap
                     .run_in_state(AppState::Game)
@@ -90,7 +92,12 @@ impl Plugin for GameplayPlugin {
             .add_exit_system(Turn::baddie(), attack(Team::Baddie))
             .add_exit_system(Turn::goodie(), replenish_move_cap(Team::Baddie))
             .add_exit_system(Turn::baddie(), replenish_move_cap(Team::Goodie))
-            .add_enter_system(Turn::baddie(), mark_movables);
+            .add_enter_system(Turn::baddie(), mark_movables)
+            .add_system(
+                start_dating
+                    .run_in_state(AppState::Game)
+                    .run_in_state(Turn::goodie()),
+            );
     }
 }
 
@@ -111,6 +118,17 @@ pub enum Team {
     Baddie,
 }
 
+impl Team {
+    fn color(self) -> Color {
+        match self {
+            Team::Goodie => Color::WHITE,
+            // Cyan is the clearest tint, since the units are red-colored
+            // Might want to indicate with some other method if this is too ugly
+            Team::Baddie => Color::rgb(0.3, 1., 1.),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Deref, DerefMut, Eq, Hash, PartialEq)]
 pub struct Turn(pub Team);
 
@@ -124,16 +142,40 @@ impl Turn {
     }
 }
 
-impl Team {
-    fn color(self) -> Color {
-        match self {
-            Team::Goodie => Color::WHITE,
-            // Cyan is the clearest tint, since the units are red-colored
-            // Might want to indicate with some other method if this is too ugly
-            Team::Baddie => Color::rgb(0.3, 1., 1.),
-        }
-    }
+#[derive(Component)]
+#[component(storage = "SparseSet")]
+struct MoveMe;
+
+#[derive(Actionlike, PartialEq, Eq, Clone, Copy, Hash, Debug)]
+pub enum Action {
+    StartDating,
+    MoveSelection,
+    Select,
+    EndTurn,
 }
+
+pub struct ReselectTile;
+
+#[derive(Component, Copy, Clone)]
+pub struct Player;
+
+#[derive(SystemLabel)]
+pub struct InputHandlingSystem;
+
+#[derive(Component, Copy, Clone)]
+pub struct MoveCap(u32);
+
+// The position of the tile that the cursor is over
+// I use `UVec2` instead of `TilePos` bc `UVec2` impls more useful traits
+#[derive(Default)]
+pub struct CursorTilePos {
+    pub pos: IVec2,
+    pub snap_camera_to: bool,
+}
+
+// Event that talks to the gameplay part
+#[derive(Deref)]
+pub struct TileSelected(IVec2);
 
 // Temporary (moved to fn since it grew)
 fn insert_units(mut commands: Commands, stats: Res<BodyParts>) {
@@ -249,9 +291,6 @@ fn handle_select_action(
     }
 }
 
-#[derive(Component, Copy, Clone)]
-pub struct MoveCap(u32);
-
 fn can_move_unit<'a>(
     mover: Entity,
     move_cap: MoveCap,
@@ -328,21 +367,6 @@ fn sync_unit_pos_with_transform(mut unit_transform: Query<(&UnitPos, &mut Transf
     }
 }
 
-#[derive(Actionlike, PartialEq, Eq, Clone, Copy, Hash, Debug)]
-pub enum Action {
-    MoveSelection,
-    Select,
-    EndTurn,
-}
-
-pub struct ReselectTile;
-
-#[derive(Component, Copy, Clone)]
-pub struct Player;
-
-#[derive(SystemLabel)]
-pub struct InputHandlingSystem;
-
 pub fn make_action_manager() -> InputManagerBundle<Action> {
     InputManagerBundle {
         action_state: ActionState::default(),
@@ -381,6 +405,8 @@ pub fn make_action_manager() -> InputManagerBundle<Action> {
             .insert(GamepadButtonType::South, Action::Select)
             .insert(KeyCode::Return, Action::EndTurn)
             .insert(GamepadButtonType::Select, Action::EndTurn)
+            .insert(KeyCode::Back, Action::StartDating)
+            .insert(GamepadButtonType::North, Action::StartDating)
             .build(),
     }
 }
@@ -429,18 +455,6 @@ fn camera_to_selected_tile(
     // instead of directly jumping to it.
     camera_trans.translation = selected_tile_pos;
 }
-
-// The position of the tile that the cursor is over
-// I use `UVec2` instead of `TilePos` bc `UVec2` impls more useful traits
-#[derive(Default)]
-pub struct CursorTilePos {
-    pub pos: IVec2,
-    pub snap_camera_to: bool,
-}
-
-// Event that talks to the gameplay part
-#[derive(Deref)]
-pub struct TileSelected(IVec2);
 
 // Adapted from Star Machine, a game that's currently on hold
 // Assumes that the map is at the origin
@@ -501,9 +515,27 @@ fn end_turn(mut commands: Commands, actioners: Query<&ActionState<Action>>) {
     }
 }
 
-#[derive(Component)]
-#[component(storage = "SparseSet")]
-struct MoveMe;
+fn start_dating(
+    mut commands: Commands<'_, '_>,
+    actioners: Query<&ActionState<Action>>,
+    units: Query<
+        Entity,
+        Or<(
+            With<Team>,
+            With<TileStorage>,
+            With<SelectTile>,
+            With<TerrainTile>,
+            With<MovementTile>,
+        )>,
+    >,
+) {
+    if actioners.single().just_pressed(Action::StartDating) {
+        commands.insert_resource(NextState(AppState::Dating));
+        for e in units.iter() {
+            commands.entity(e).despawn_recursive();
+        }
+    }
+}
 
 fn mark_movables(mut commands: Commands, units: Query<(Entity, &Team)>) {
     for (unit, team) in &units {
