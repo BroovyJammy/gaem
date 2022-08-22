@@ -13,9 +13,26 @@ use super::{Team, UnitPos};
 pub enum PartDirection {
     Right = 3,
     Down = 2,
-    _Left = 1,
+    Left = 1,
     Up = 0,
 }
+
+impl PartDirection {
+    pub fn to_u8(self) -> u8 {
+        self as u8
+    }
+
+    pub fn from_u8(u8: u8) -> Self {
+        match u8 {
+            0 => Self::Up,
+            1 => Self::Left,
+            2 => Self::Down,
+            3 => Self::Right,
+            _ => unreachable!(),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum InsectPartKind {
     Flesh = 0,
@@ -135,6 +152,41 @@ impl InsectBody {
             );
             self.get_part(adj_tile)
         })
+    }
+
+    pub fn make_new_rotated(&self, dir: PartDirection) -> Self {
+        let mut largest = 0;
+        for (x, y) in self.parts.iter().map(|part| part.position) {
+            if x > largest {
+                largest = x;
+            }
+            if y > largest {
+                largest = y;
+            }
+        }
+
+        let mut body_parts = vec![];
+        for part in self.parts.iter() {
+            let mut pos = part.position;
+            let mut rot = part.rotation;
+            for _ in 0..=dir.to_u8() {
+                pos = (pos.1, largest - pos.0);
+                rot = match rot {
+                    PartDirection::Right => PartDirection::Down,
+                    PartDirection::Down => PartDirection::Left,
+                    PartDirection::Left => PartDirection::Up,
+                    PartDirection::Up => PartDirection::Right,
+                }
+            }
+            body_parts.push(InsectPart {
+                position: pos,
+                kind: part.kind,
+                rotation: rot,
+                health: part.health,
+            })
+        }
+
+        Self::new(body_parts)
     }
 }
 
@@ -271,7 +323,6 @@ pub fn merge_insect_bodies(a: &InsectBody, b: &InsectBody, rng: &mut StdRng) -> 
         pad_y_start = b_flesh.position.1 - a_flesh.position.1;
     }
 
-    // FIXME we need to allow for rotating `b` before placement
     let mut wip_insect_parts = Vec::<InsectPart>::new();
     for part in a.parts.iter() {
         wip_insect_parts.push(InsectPart {
@@ -279,7 +330,10 @@ pub fn merge_insect_bodies(a: &InsectBody, b: &InsectBody, rng: &mut StdRng) -> 
             ..*part
         })
     }
+
     use InsectPartKind::*;
+    let dir = PartDirection::from_u8(rng.gen_range(0..4));
+    let b = b.make_new_rotated(dir);
     for part in b.parts.iter() {
         let offset_x = (a_flesh.position.0 + pad_x_start) - b_flesh.position.0;
         let offset_y = (a_flesh.position.1 + pad_y_start) - b_flesh.position.1;

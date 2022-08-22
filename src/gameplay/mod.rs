@@ -135,57 +135,57 @@ impl Team {
 // Temporary (moved to fn since it grew)
 fn insert_units(mut commands: Commands) {
     let mut team = true;
-    let mut to_spawn = 999;
+    let mut to_spawn = 99;
     let mut seeds = vec![];
     for x in 0..MAP_SIZE {
         for y in 0..MAP_SIZE {
-            if y % 3 != 0 {
+            if y % 10 != 0 {
                 continue;
             }
-
-            if (x + y) % 12 == 0 {
-                if to_spawn == 0 {
-                    return;
-                }
-                to_spawn -= 1;
-
-                team = !team;
-                let team = match team {
-                    true => Team::Goodie,
-                    false => Team::Baddie,
-                };
-
-                let body = {
-                    let src_1 = InsectBody::new(vec![
-                        InsectPart::new((0, 0), InsectPartKind::Head, PartDirection::Down),
-                        InsectPart::new((0, 1), InsectPartKind::Flesh, PartDirection::Up),
-                        InsectPart::new((1, 1), InsectPartKind::Flesh, PartDirection::Right),
-                    ]);
-                    let src_2 = InsectBody::new(vec![
-                        InsectPart::new((0, 0), InsectPartKind::Flesh, PartDirection::Down),
-                        InsectPart::new((0, 1), InsectPartKind::Flesh, PartDirection::Up),
-                        InsectPart::new((1, 1), InsectPartKind::Legs, PartDirection::Right),
-                    ]);
-                    let seed = seeds.pop().unwrap_or_else(|| rand::thread_rng().gen());
-                    debug!(seed);
-                    insect_body::generate_body(&[src_1, src_2], 2, &mut StdRng::seed_from_u64(seed))
-                };
-                let move_cap = MoveCap(body.max_move_cap());
-
-                commands
-                    .spawn()
-                    .insert_bundle(TransformBundle { ..default() })
-                    .insert(UnitPos(IVec2::new(x as i32, y as i32)))
-                    .insert(body)
-                    .insert(UpdateBody)
-                    .insert(team)
-                    .insert(InsectRenderEntities {
-                        hp_bar: HashMap::new(),
-                        body_part: HashMap::new(),
-                    })
-                    .insert(move_cap)
-                    .insert_bundle(VisibilityBundle { ..default() });
+            if x % 10 != 0 {
+                continue;
             }
+            if to_spawn == 0 {
+                return;
+            }
+            to_spawn -= 1;
+
+            team = !team;
+            let team = match team {
+                true => Team::Goodie,
+                false => Team::Baddie,
+            };
+
+            let body = {
+                let src_1 = InsectBody::new(vec![
+                    InsectPart::new((0, 0), InsectPartKind::Head, PartDirection::Down),
+                    InsectPart::new((0, 1), InsectPartKind::Flesh, PartDirection::Up),
+                    InsectPart::new((1, 1), InsectPartKind::Flesh, PartDirection::Right),
+                ]);
+                let src_2 = InsectBody::new(vec![
+                    InsectPart::new((0, 0), InsectPartKind::Flesh, PartDirection::Down),
+                    InsectPart::new((0, 1), InsectPartKind::Flesh, PartDirection::Up),
+                    InsectPart::new((1, 1), InsectPartKind::Legs, PartDirection::Right),
+                ]);
+                let seed = seeds.pop().unwrap_or_else(|| rand::thread_rng().gen());
+                debug!(seed);
+                insect_body::generate_body(&[src_1, src_2], 3, &mut StdRng::seed_from_u64(seed))
+            };
+            let move_cap = MoveCap(body.max_move_cap());
+
+            commands
+                .spawn()
+                .insert_bundle(TransformBundle { ..default() })
+                .insert(UnitPos(IVec2::new(x as i32, y as i32)))
+                .insert(body)
+                .insert(UpdateBody)
+                .insert(team)
+                .insert(InsectRenderEntities {
+                    hp_bar: HashMap::new(),
+                    body_part: HashMap::new(),
+                })
+                .insert(move_cap)
+                .insert_bundle(VisibilityBundle { ..default() });
         }
     }
 }

@@ -24,7 +24,7 @@ pub enum Layer {
 pub struct LayerToMap(pub HashMap<Layer, Entity>);
 
 // In tiles
-pub const MAP_SIZE: u32 = 32;
+pub const MAP_SIZE: u32 = 64;
 // In pixels
 pub const TILE_SIZE: u32 = 32;
 // Characters will be at `1.`
