@@ -308,9 +308,9 @@ pub fn merge_insect_bodies(
                 if adjacent.x < 0 || adjacent.y < 0 {
                     return false;
                 }
-                body.used_tiles
+                !body
+                    .used_tiles
                     .contains(&(adjacent.x as u32, adjacent.y as u32))
-                    == false
             })
     };
 
@@ -330,8 +330,8 @@ pub fn merge_insect_bodies(
             .unwrap()
     }
 
-    let a_flesh = pick_edge_flesh(|a, b| filter(a, b, &stats), a, rng);
-    let b_flesh = pick_edge_flesh(|a, b| filter(a, b, &stats), &b, rng);
+    let a_flesh = pick_edge_flesh(|a, b| filter(a, b, stats), a, rng);
+    let b_flesh = pick_edge_flesh(|a, b| filter(a, b, stats), &b, rng);
 
     let mut pad_x_start = 0;
     let mut pad_y_start = 0;
