@@ -10,7 +10,7 @@ use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
 use rand::{Rng, SeedableRng};
 
-use self::insect_body::{InsectRenderEntities, UpdateBody};
+use self::insect_body::{spawn_insect, UpdateBody};
 pub struct GameplayPlugin;
 
 pub mod insect_body;
@@ -187,19 +187,13 @@ fn insert_units(mut commands: Commands, stats: Res<BodyParts>) {
             };
             let move_cap = MoveCap(body.max_move_cap(&stats));
 
-            commands
-                .spawn()
-                .insert_bundle(TransformBundle { ..default() })
-                .insert(UnitPos(IVec2::new(x as i32, y as i32)))
-                .insert(body)
-                .insert(UpdateBody)
-                .insert(team)
-                .insert(InsectRenderEntities {
-                    hp_bar: HashMap::new(),
-                    body_part: HashMap::new(),
-                })
-                .insert(move_cap)
-                .insert_bundle(VisibilityBundle { ..default() });
+            spawn_insect(
+                &mut commands,
+                IVec2::new(x as i32, y as i32),
+                body,
+                team,
+                move_cap,
+            )
         }
     }
 }
@@ -744,23 +738,18 @@ fn attack(
                         continue;
                     }
 
-                    commands
-                        .spawn()
-                        .insert_bundle(TransformBundle { ..default() })
-                        .insert(*body_pos)
-                        .insert(InsectBody::new(
+                    spawn_insect(
+                        &mut commands,
+                        **body_pos,
+                        InsectBody::new(
                             parts
                                 .into_iter()
                                 .map(|part_pos| *body.get_part(part_pos).unwrap())
                                 .collect(),
-                        ))
-                        .insert(UpdateBody)
-                        .insert(*body_team)
-                        .insert(InsectRenderEntities {
-                            hp_bar: HashMap::new(),
-                            body_part: HashMap::new(),
-                        })
-                        .insert_bundle(VisibilityBundle { ..default() });
+                        ),
+                        *body_team,
+                        MoveCap(body.max_move_cap(&stats)),
+                    );
 
                     commands.entity(severee).despawn_recursive();
                 }

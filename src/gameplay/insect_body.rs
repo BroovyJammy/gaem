@@ -10,7 +10,7 @@ use crate::{
     map::TILE_SIZE,
 };
 
-use super::{Team, UnitPos};
+use super::{MoveCap, Team, UnitPos};
 
 #[derive(Clone, Copy, Debug)]
 pub enum PartDirection {
@@ -195,6 +195,28 @@ impl InsectBody {
 
         Self::new(body_parts)
     }
+}
+
+pub fn spawn_insect(
+    commands: &mut Commands,
+    pos: IVec2,
+    body: InsectBody,
+    team: Team,
+    move_cap: MoveCap,
+) {
+    commands
+        .spawn()
+        .insert_bundle(TransformBundle { ..default() })
+        .insert(UnitPos(pos))
+        .insert(body)
+        .insert(UpdateBody)
+        .insert(team)
+        .insert(InsectRenderEntities {
+            hp_bar: HashMap::new(),
+            body_part: HashMap::new(),
+        })
+        .insert(move_cap)
+        .insert_bundle(VisibilityBundle { ..default() });
 }
 
 #[derive(Component)]
