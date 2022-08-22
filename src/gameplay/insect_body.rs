@@ -98,7 +98,7 @@ impl InsectBody {
         })
     }
 
-    pub fn move_speed(&self) -> u32 {
+    pub fn max_move_cap(&self) -> u32 {
         self.parts
             .iter()
             .map(|part| part.kind.move_bonus())

@@ -18,8 +18,7 @@ impl Plugin for GameplayPlugin {
         app.add_system(
             highlight_movable_tiles
                 .run_in_state(AppState::Game)
-                .run_in_state(Turn::goodie())
-                .run_if_resource_added::<SelectedUnit>(),
+                .run_in_state(Turn::goodie()),
         );
         app.add_system(
             remove_movement_indicator
@@ -86,7 +85,9 @@ impl Plugin for GameplayPlugin {
                     .run_in_state(Turn::baddie()),
             )
             .add_exit_system(Turn::goodie(), attack(Team::Goodie))
-            .add_exit_system(Turn::baddie(), attack(Team::Baddie));
+            .add_exit_system(Turn::baddie(), attack(Team::Baddie))
+            .add_exit_system(Turn::goodie(), replenish_move_cap(Team::Baddie))
+            .add_exit_system(Turn::baddie(), replenish_move_cap(Team::Goodie));
     }
 }
 
@@ -169,6 +170,7 @@ fn insert_units(mut commands: Commands) {
                     debug!(seed);
                     insect_body::generate_body(&[src_1, src_2], 2, &mut StdRng::seed_from_u64(seed))
                 };
+                let move_cap = MoveCap(body.max_move_cap());
 
                 commands
                     .spawn()
@@ -181,6 +183,7 @@ fn insert_units(mut commands: Commands) {
                         hp_bar: HashMap::new(),
                         body_part: HashMap::new(),
                     })
+                    .insert(move_cap)
                     .insert_bundle(VisibilityBundle { ..default() });
             }
         }
@@ -193,14 +196,14 @@ fn handle_select_action(
     actioners: Query<&ActionState<Action>>,
     cursor_pos: Res<CursorTilePos>,
     selected_unit: Option<Res<SelectedUnit>>,
-    mut units: Query<(Entity, &mut UnitPos, &InsectBody, &Team)>,
+    mut units: Query<(Entity, &mut UnitPos, &InsectBody, &Team, &mut MoveCap)>,
 ) {
     if actioners.single().just_pressed(Action::Select) == false {
         return;
     }
     tile_selected_writer.send(TileSelected(cursor_pos.pos));
 
-    for (unit, pos, body, team) in &units {
+    for (unit, pos, body, team, _) in &units {
         if body.contains_tile(*pos, cursor_pos.pos) {
             match team {
                 Team::Goodie => commands.insert_resource(SelectedUnit {
@@ -214,34 +217,45 @@ fn handle_select_action(
     }
 
     if let Some(selected_unit) = selected_unit {
-        let (_, move_unit_from, selected_body, _) = units.get(selected_unit.unit).unwrap();
+        let (_, move_unit_from, selected_body, _, move_cap) =
+            units.get(selected_unit.unit).unwrap();
         if can_move_unit(
             selected_unit.unit,
+            *move_cap,
             selected_body,
             selected_unit.at_local_pos,
             **move_unit_from,
             cursor_pos.pos,
-            units.iter().map(|(a, b, c, _)| (a, b, c)),
+            units.iter().map(|(a, b, c, _, _)| (a, b, c)),
         ) {
-            let (_, mut unit_pos, _, _) = units.get_mut(selected_unit.unit).unwrap();
+            let (_, mut unit_pos, _, _, mut move_cap) = units.get_mut(selected_unit.unit).unwrap();
             let move_unit_to = cursor_pos.pos - selected_unit.at_local_pos;
+
+            let move_delta = unit_pos.0.as_ivec2() - move_unit_to.as_ivec2();
+            move_cap.0 -= (move_delta.x.abs() + move_delta.y.abs()) as u32;
+
             unit_pos.0 = move_unit_to;
+
             commands.remove_resource::<SelectedUnit>();
         }
     }
 }
 
+#[derive(Component, Copy, Clone)]
+pub struct MoveCap(u32);
+
 fn can_move_unit<'a>(
     mover: Entity,
+    move_cap: MoveCap,
     mover_body: &InsectBody,
     grab_point: UVec2,
     from: UVec2,
     to: UVec2,
     units: impl IntoIterator<Item = (Entity, &'a UnitPos, &'a InsectBody)>,
 ) -> bool {
-    let move_delta = to.as_ivec2() - from.as_ivec2();
+    let move_delta = (to.as_ivec2() - grab_point.as_ivec2()) - from.as_ivec2();
 
-    (move_delta.x.abs() + move_delta.y.abs()) as u32 <= mover_body.move_speed()
+    (move_delta.x.abs() + move_delta.y.abs()) as u32 <= move_cap.0
         && !units.into_iter().any(|(unit_entity, unit_pos, body)| {
             if unit_entity == mover {
                 return false;
@@ -261,20 +275,29 @@ fn can_move_unit<'a>(
 }
 
 fn highlight_movable_tiles(
-    units: Query<(Entity, &UnitPos, &InsectBody)>,
+    units: Query<(Entity, &UnitPos, &InsectBody, &MoveCap)>,
     mut movement_tiles: Query<(&mut TileTexture, &TilePos), With<MovementTile>>,
-    selected_unit: Res<SelectedUnit>,
+    selected_unit: Option<Res<SelectedUnit>>,
 ) {
-    let (_, unit_pos, body) = units.get(selected_unit.unit).unwrap();
+    let selected_unit = match selected_unit {
+        Some(unit) if unit.is_changed() => unit,
+        _ => return,
+    };
 
+    for (mut texture, _) in &mut movement_tiles {
+        *texture = Select::Inactive.into();
+    }
+
+    let (_, unit_pos, body, move_cap) = units.get(selected_unit.unit).unwrap();
     for (mut texture, tile_pos) in &mut movement_tiles {
         if can_move_unit(
             selected_unit.unit,
+            *move_cap,
             body,
             selected_unit.at_local_pos,
             **unit_pos,
             tile_pos.into(),
-            &units,
+            units.iter().map(|(a, b, c, _)| (a, b, c)),
         ) {
             *texture = Select::Active.into();
         }
@@ -346,6 +369,7 @@ pub fn make_action_manager() -> InputManagerBundle<Action> {
             // `South`, meaning A. South on D-Pad is `DPadDown`.
             .insert(GamepadButtonType::South, Action::Select)
             .insert(KeyCode::Return, Action::EndTurn)
+            .insert(GamepadButtonType::Select, Action::EndTurn)
             .build(),
     }
 }
@@ -365,6 +389,7 @@ pub fn handle_input(
             .xy();
         let mut camera_trans = camera.get_single_mut().unwrap();
         camera_trans.translation += movement.extend(0.0) * CAM_SPEED;
+        camera_trans.translation = camera_trans.translation.as_ivec3().as_vec3();
         writer.send(ReselectTile);
     }
 }
@@ -637,6 +662,16 @@ fn attack(
 
                     commands.entity(severee).despawn_recursive();
                 }
+            }
+        }
+    }
+}
+
+pub fn replenish_move_cap(team: Team) -> impl Fn(Query<(&Team, &InsectBody, &mut MoveCap)>) {
+    move |mut query| {
+        for (unit_team, body, mut move_cap) in query.iter_mut() {
+            if *unit_team == team {
+                move_cap.0 = body.max_move_cap();
             }
         }
     }
