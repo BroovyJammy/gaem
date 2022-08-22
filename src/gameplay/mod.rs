@@ -794,23 +794,11 @@ fn attack(
                         .connections
                         .iter()
                         .map(|connection| next_part.rotation.rotate_ivec(*connection))
-                        .any(|mut connection| {
-                            let temp = -connection[1];
-                            connection[1] = connection[0];
-                            connection[0] = temp;
-                            UVec2::from(next_pos).as_ivec2() - connection
+                        .any(|connection| {
+                            UVec2::from(next_pos).as_ivec2() + connection
                                 == UVec2::from(visit_pos).as_ivec2()
                         })
                     {
-                        if stats[next_part.kind].connections.len() == 1 {
-                            info!(
-                                "{} {:?}",
-                                next_part
-                                    .rotation
-                                    .rotate_ivec(stats[next_part.kind].connections[0],),
-                                next_part.rotation
-                            );
-                        }
                         to_visit.push((cluster_i, next_pos));
                     }
                 }
