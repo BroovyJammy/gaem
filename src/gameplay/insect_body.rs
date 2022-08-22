@@ -26,7 +26,7 @@ pub enum InsectPartKind {
 impl InsectPartKind {
     fn move_bonus(self) -> u32 {
         match self {
-            Self::Legs => 2,
+            Self::Legs => 3,
             _ => 0,
         }
     }
@@ -99,8 +99,7 @@ impl InsectBody {
     }
 
     pub fn move_speed(&self) -> u32 {
-        3 + self
-            .parts
+        self.parts
             .iter()
             .map(|part| part.kind.move_bonus())
             .sum::<u32>()

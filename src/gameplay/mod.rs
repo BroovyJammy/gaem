@@ -539,46 +539,104 @@ fn attack(
 
         // Have to do this logic separately in case multiple parts were severed
         for severee in severees.into_iter() {
-            let (_, _, mut body, _) = units.get_mut(severee).unwrap();
+            let (_, body_pos, mut body, body_team) = units.get_mut(severee).unwrap();
 
             let mut living = HashSet::<(u32, u32)>::default();
             let mut to_visit = body
                 .parts
                 .iter()
                 .filter_map(|part| (part.kind == InsectPartKind::Head).then(|| part.position))
+                .enumerate()
                 .collect::<Vec<_>>();
+            let mut clusters = (0..to_visit.len())
+                .map(|cluster| (cluster, default()))
+                .collect::<HashMap<usize, HashSet<(u32, u32)>>>();
 
-            while let Some(visit_pos) = to_visit.pop() {
-                if living.contains(&visit_pos) || !body.used_tiles.contains(&visit_pos) {
+            while let Some((cluster_i, visit_pos)) = to_visit.pop() {
+                if !body.used_tiles.contains(&visit_pos) {
+                    continue;
+                }
+
+                if living.contains(&visit_pos) {
+                    // Ok this part has already been visited...
+                    if !clusters.get(&cluster_i).unwrap().contains(&visit_pos) {
+                        // ...but it hasn't been visited in this cluster!
+                        // So the clusters should be merged!
+
+                        let cluster = clusters.remove(&cluster_i).unwrap();
+                        let (other_i, other) = clusters
+                            .iter_mut()
+                            .find(|(_, other)| other.contains(&visit_pos))
+                            .unwrap();
+                        other.extend(cluster.into_iter());
+
+                        // Let's avoid visiting a deleted cluster
+                        for (visit_i, _) in to_visit.iter_mut() {
+                            if *visit_i == cluster_i {
+                                *visit_i = *other_i;
+                            }
+                        }
+                    }
+
                     continue;
                 }
 
                 living.insert(visit_pos);
+                clusters.get_mut(&cluster_i).unwrap().insert(visit_pos);
+
                 for (dx, dy) in [(0, 1), (0, -1), (1, 0), (-1, 0)] {
                     let next_pos = (visit_pos.0 as i32 + dx, visit_pos.1 as i32 + dy);
                     if next_pos.0 >= 0 && next_pos.1 >= 0 {
-                        to_visit.push((next_pos.0 as u32, next_pos.1 as u32));
+                        to_visit.push((cluster_i, (next_pos.0 as u32, next_pos.1 as u32)));
                     }
                 }
             }
 
-            // Have to collect for ownership
-            for amputate_pos in body
-                .used_tiles
-                .difference(&living)
-                .copied()
-                .collect::<Vec<_>>()
-                .into_iter()
-            {
-                body.remove_part(amputate_pos);
-            }
+            if clusters.len() == 1 {
+                // Have to collect for ownership
+                for amputate_pos in body
+                    .used_tiles
+                    .difference(&living)
+                    .copied()
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                {
+                    body.remove_part(amputate_pos);
 
-            if body.used_tiles.len() < 2 {
-                debug!("Death!");
-                // No floating heads
-                commands.entity(severee).despawn_recursive();
+                    if body.used_tiles.len() < 2 {
+                        debug!("Death!");
+                        // No floating heads
+                        commands.entity(severee).despawn_recursive();
+                    } else {
+                        debug!("Destroyed Part!");
+                    }
+                }
             } else {
-                debug!("Destroyed Part!");
+                for (_, parts) in clusters {
+                    if parts.len() < 2 {
+                        continue;
+                    }
+
+                    commands
+                        .spawn()
+                        .insert_bundle(TransformBundle { ..default() })
+                        .insert(*body_pos)
+                        .insert(InsectBody::new(
+                            parts
+                                .into_iter()
+                                .map(|part_pos| *body.get_part(part_pos).unwrap())
+                                .collect(),
+                        ))
+                        .insert(UpdateBody)
+                        .insert(*body_team)
+                        .insert(InsectRenderEntities {
+                            hp_bar: HashMap::new(),
+                            body_part: HashMap::new(),
+                        })
+                        .insert_bundle(VisibilityBundle { ..default() });
+
+                    commands.entity(severee).despawn_recursive();
+                }
             }
         }
     }
