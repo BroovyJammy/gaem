@@ -668,7 +668,6 @@ fn attack(
                         if delta.x.abs() + delta.y.abs() == 1 {
                             // Adjacent
                             attacks.push((defender, defender_part.position, damage));
-                            debug!("Damage!");
                         }
                     }
                 }
@@ -705,7 +704,7 @@ fn attack(
             let mut to_visit = body
                 .parts
                 .iter()
-                .filter_map(|part| (part.kind == InsectPartKind(1)).then(|| part.position))
+                .filter_map(|part| stats[part.kind].base.then(|| part.position))
                 .enumerate()
                 .collect::<Vec<_>>();
             let mut clusters = (0..to_visit.len())
@@ -713,10 +712,6 @@ fn attack(
                 .collect::<HashMap<usize, HashSet<(u32, u32)>>>();
 
             while let Some((cluster_i, visit_pos)) = to_visit.pop() {
-                if !body.used_tiles.contains(&visit_pos) {
-                    continue;
-                }
-
                 if living.contains(&visit_pos) {
                     // Ok this part has already been visited...
                     if !clusters.get(&cluster_i).unwrap().contains(&visit_pos) {
@@ -744,55 +739,59 @@ fn attack(
                 living.insert(visit_pos);
                 clusters.get_mut(&cluster_i).unwrap().insert(visit_pos);
 
-                for (dx, dy) in [(0, 1), (0, -1), (1, 0), (-1, 0)] {
-                    let next_pos = (visit_pos.0 as i32 + dx, visit_pos.1 as i32 + dy);
-                    if next_pos.0 >= 0 && next_pos.1 >= 0 {
-                        to_visit.push((cluster_i, (next_pos.0 as u32, next_pos.1 as u32)));
-                    }
-                }
-            }
-
-            if clusters.len() == 1 {
-                // Have to collect for ownership
-                for amputate_pos in body
-                    .used_tiles
-                    .difference(&living)
-                    .copied()
-                    .collect::<Vec<_>>()
-                    .into_iter()
+                let part = body.get_part(visit_pos).unwrap();
+                for delta in stats[part.kind]
+                    .connections
+                    .iter()
+                    .map(|connection| part.rotation.rotate_ivec(*connection))
                 {
-                    body.remove_part(amputate_pos);
-
-                    if body.used_tiles.len() < 2 {
-                        debug!("Death!");
-                        // No floating heads
-                        commands.entity(severee).despawn_recursive();
-                    } else {
-                        debug!("Destroyed Part!");
-                    }
-                }
-            } else {
-                for (_, parts) in clusters {
-                    if parts.len() < 2 {
+                    let next_pos = (visit_pos.0 as i32 + delta.x, visit_pos.1 as i32 + delta.y);
+                    if next_pos.0 < 0 || next_pos.1 < 0 {
                         continue;
                     }
 
-                    spawn_insect(
-                        &mut commands,
-                        **body_pos,
-                        InsectBody::new(
-                            parts
-                                .into_iter()
-                                .map(|part_pos| *body.get_part(part_pos).unwrap())
-                                .collect(),
-                        ),
-                        *body_team,
-                        MoveCap(body.max_move_cap(&stats)),
-                    );
+                    let next_pos = (next_pos.0 as u32, next_pos.1 as u32);
+                    if !body.used_tiles.contains(&next_pos) {
+                        continue;
+                    }
 
-                    commands.entity(severee).despawn_recursive();
+                    // Uncommenting this if block makes some parts disappear unnecessarily :(
+
+                    // let next_part = body.get_part(next_pos).unwrap();
+                    // if stats[next_part.kind]
+                    //     .connections
+                    //     .iter()
+                    //     .map(|connection| next_part.rotation.rotate_ivec(*connection))
+                    //     .any(|connection| {
+                    //         UVec2::from(next_pos).as_ivec2() + connection
+                    //             == UVec2::from(visit_pos).as_ivec2()
+                    //     })
+                    // {
+                    to_visit.push((cluster_i, next_pos));
+                    // }
                 }
             }
+
+            for (_, parts) in clusters {
+                if parts.is_empty() {
+                    continue;
+                }
+
+                spawn_insect(
+                    &mut commands,
+                    **body_pos,
+                    InsectBody::new(
+                        parts
+                            .into_iter()
+                            .map(|part_pos| *body.get_part(part_pos).unwrap())
+                            .collect(),
+                    ),
+                    *body_team,
+                    MoveCap(body.max_move_cap(&stats)),
+                );
+            }
+
+            commands.entity(severee).despawn_recursive();
         }
     }
 }

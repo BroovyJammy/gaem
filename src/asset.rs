@@ -62,6 +62,9 @@ pub struct BodyPartDescriptor {
     pub max_health: u32,
     pub move_bonus: u32,
     pub damage: u32,
+    // An insect needs at least one base part, or it vanishes
+    // This is to prevent floating heads, wings, etc
+    pub base: bool,
     pub sprite_idx: usize,
     pub connections: Vec<IVec2>,
     pub pivot: Vec2,

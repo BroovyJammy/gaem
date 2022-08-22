@@ -312,6 +312,7 @@ pub fn update_insect_body_tilemap(
     }
 }
 
+// They did the monster mash...
 pub fn merge_insect_bodies(
     a: &InsectBody,
     b: &InsectBody,
@@ -423,6 +424,8 @@ pub fn merge_insect_bodies(
     }
 
     InsectBody::new(wip_insect_parts)
+
+    // ...It was a graveyard smash
 }
 
 pub fn generate_body(
