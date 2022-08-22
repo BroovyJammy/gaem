@@ -513,89 +513,128 @@ fn mark_movables(mut commands: Commands, units: Query<(Entity, &Team)>) {
     }
 }
 
-#[derive(Default, Deref, DerefMut)]
-struct UsefulTimer(Duration);
-
 // AI might be too hard lol
 fn move_enemy_unit(
     mut commands: Commands,
-    mut useful_timer: Local<UsefulTimer>,
     move_me: Query<Entity, With<MoveMe>>,
     mut units: Query<(Entity, &mut UnitPos, &InsectBody, &MoveCap, &Team)>,
     movement_tiles: Query<&TilePos, With<MovementTile>>,
-    time: Res<Time>,
     stats: Res<BodyParts>,
 ) {
-    // Looks better to move units one-by-one
-    // Decreased to 1 ms now that it's laggy
-    if **useful_timer > Duration::from_millis(1) {
-        **useful_timer -= Duration::from_millis(1);
+    if let Some((unit, unit_pos, body, move_cap, _)) =
+        move_me.iter().next().map(|unit| units.get(unit).unwrap())
+    {
+        let mut movement_tiles = movement_tiles.iter().collect::<Vec<_>>();
+        movement_tiles.shuffle(&mut rand::thread_rng());
 
-        if let Some((unit, unit_pos, body, move_cap, _)) =
-            move_me.iter().next().map(|unit| units.get(unit).unwrap())
-        {
-            let mut movement_tiles = movement_tiles.iter().collect::<Vec<_>>();
-            movement_tiles.shuffle(&mut rand::thread_rng());
+        // AI tries to deal the most and take the least damage per turn
+        let mut best_dest = **unit_pos;
+        let mut best_score = i32::MIN;
 
-            // AI tries to deal the most and take the least damage per turn
-            let mut best_dest = **unit_pos;
-            let mut best_score = i32::MIN;
+        let unit_size = UVec2::from(
+            body.used_tiles
+                .iter()
+                .fold((0, 0), |(max_x, max_y), (x, y)| {
+                    (max_x.max(*x), max_y.max(*y))
+                }),
+        );
 
-            for tile_pos in &movement_tiles {
-                if !can_move_unit(
-                    unit,
-                    *move_cap,
-                    body,
-                    UVec2::ZERO,
-                    **unit_pos,
-                    UVec2::new(tile_pos.x, tile_pos.y).as_ivec2(),
-                    units.iter().map(|(a, b, c, _, _)| (a, b, c)),
-                ) {
+        let unit_sizes = units
+            .iter()
+            .map(|(other, _, other_body, _, _)| {
+                (
+                    other,
+                    UVec2::from(
+                        other_body
+                            .used_tiles
+                            .iter()
+                            .fold((0, 0), |(max_x, max_y), (x, y)| {
+                                (max_x.max(*x), max_y.max(*y))
+                            }),
+                    ),
+                )
+            })
+            .collect::<HashMap<_, _>>();
+
+        // Optimization! Let's only look at units that could possibly be close enough
+        let nearby_units = units
+            .iter()
+            .filter_map(|(other, other_pos, _, _, _)| {
+                let other_size = *unit_sizes.get(&other).unwrap();
+
+                let delta = **unit_pos - **other_pos;
+                UVec2::new(delta.x.unsigned_abs(), delta.y.unsigned_abs())
+                    .cmple(unit_size + other_size + UVec2::splat(move_cap.0))
+                    .all()
+                    .then(|| other)
+            })
+            .collect::<Vec<_>>();
+
+        for tile_pos in &movement_tiles {
+            if !can_move_unit(
+                unit,
+                *move_cap,
+                body,
+                UVec2::ZERO,
+                **unit_pos,
+                UVec2::new(tile_pos.x, tile_pos.y).as_ivec2(),
+                nearby_units
+                    .iter()
+                    .map(|unit| units.get(*unit).map(|(a, b, c, _, _)| (a, b, c)).unwrap()),
+            ) {
+                continue;
+            }
+
+            let mut score = 0;
+            for (other, other_pos, other_body, _, other_team) in
+                nearby_units.iter().map(|unit| units.get(*unit).unwrap())
+            {
+                if unit == other {
+                    // Doesn't really matter mathematically,
+                    // but should make the scores make more sense during debug
                     continue;
                 }
 
-                let mut score = 0;
+                let other_size = *unit_sizes.get(&other).unwrap();
+
+                let delta = IVec2::new(tile_pos.x as i32, tile_pos.y as i32) - **other_pos;
+                if UVec2::new(delta.x.unsigned_abs(), delta.y.unsigned_abs())
+                    .cmpgt(unit_size + other_size)
+                    .any()
+                {
+                    // Too far to influence score
+                    continue;
+                }
+
                 for part in &body.parts {
-                    for (other, other_pos, other_body, _, other_team) in units.iter() {
-                        if unit == other {
-                            // Doesn't really matter mathematically,
-                            // but should make the scores make more sense during debug
-                            continue;
-                        }
+                    for other_part in &other_body.parts {
+                        let delta = (UVec2::new(tile_pos.x, tile_pos.y)
+                            + UVec2::from(part.position))
+                        .as_ivec2()
+                            - (**other_pos + UVec2::from(other_part.position).as_ivec2());
 
-                        for other_part in &other_body.parts {
-                            let delta = (UVec2::new(tile_pos.x, tile_pos.y)
-                                + UVec2::from(part.position))
-                            .as_ivec2()
-                                - (**other_pos + UVec2::from(other_part.position).as_ivec2());
-
-                            if delta.x.abs() + delta.y.abs() == 1 {
-                                // Adjacent
-                                score += stats[part.kind].damage as i32
-                                    * ((*other_team == Team::Goodie) as i32 * 2 - 1)
-                                    - stats[other_part.kind].damage as i32;
-                            }
+                        if delta.x.abs() + delta.y.abs() == 1 {
+                            // Adjacent
+                            score += stats[part.kind].damage as i32
+                                * ((*other_team == Team::Goodie) as i32 * 2 - 1)
+                                - stats[other_part.kind].damage as i32;
                         }
                     }
                 }
-
-                debug!("{score}");
-
-                if score > best_score {
-                    best_dest = UVec2::new(tile_pos.x, tile_pos.y).as_ivec2();
-                    best_score = score;
-                }
             }
 
-            let (_, mut unit_pos, _, _, _) = units.get_mut(unit).unwrap();
-            **unit_pos = best_dest;
-            commands.entity(unit).remove::<MoveMe>();
-        } else {
-            // Everyone has moved
-            commands.insert_resource(NextState(Turn::goodie()));
+            if score > best_score {
+                best_dest = UVec2::new(tile_pos.x, tile_pos.y).as_ivec2();
+                best_score = score;
+            }
         }
+
+        let (_, mut unit_pos, _, _, _) = units.get_mut(unit).unwrap();
+        **unit_pos = best_dest;
+        commands.entity(unit).remove::<MoveMe>();
     } else {
-        **useful_timer += time.delta();
+        // Everyone has moved
+        commands.insert_resource(NextState(Turn::goodie()));
     }
 }
 
