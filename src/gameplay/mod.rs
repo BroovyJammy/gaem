@@ -730,7 +730,7 @@ fn attack(
 
         // Have to do this logic separately in case multiple parts were severed
         for severee in severees.into_iter() {
-            let (_, body_pos, mut body, body_team) = units.get_mut(severee).unwrap();
+            let (_, body_pos, body, body_team) = units.get(severee).unwrap();
 
             let mut living = HashSet::<(u32, u32)>::default();
             let mut to_visit = body
@@ -789,18 +789,30 @@ fn attack(
 
                     // Uncommenting this if block makes some parts disappear unnecessarily :(
 
-                    // let next_part = body.get_part(next_pos).unwrap();
-                    // if stats[next_part.kind]
-                    //     .connections
-                    //     .iter()
-                    //     .map(|connection| next_part.rotation.rotate_ivec(*connection))
-                    //     .any(|connection| {
-                    //         UVec2::from(next_pos).as_ivec2() + connection
-                    //             == UVec2::from(visit_pos).as_ivec2()
-                    //     })
-                    // {
-                    to_visit.push((cluster_i, next_pos));
-                    // }
+                    let next_part = body.get_part(next_pos).unwrap();
+                    if stats[next_part.kind]
+                        .connections
+                        .iter()
+                        .map(|connection| next_part.rotation.rotate_ivec(*connection))
+                        .any(|mut connection| {
+                            let temp = -connection[1];
+                            connection[1] = connection[0];
+                            connection[0] = temp;
+                            UVec2::from(next_pos).as_ivec2() - connection
+                                == UVec2::from(visit_pos).as_ivec2()
+                        })
+                    {
+                        if stats[next_part.kind].connections.len() == 1 {
+                            info!(
+                                "{} {:?}",
+                                next_part
+                                    .rotation
+                                    .rotate_ivec(stats[next_part.kind].connections[0],),
+                                next_part.rotation
+                            );
+                        }
+                        to_visit.push((cluster_i, next_pos));
+                    }
                 }
             }
 
@@ -809,17 +821,20 @@ fn attack(
                     continue;
                 }
 
+                let body = InsectBody::new(
+                    parts
+                        .into_iter()
+                        .map(|part_pos| *body.get_part(part_pos).unwrap())
+                        .collect(),
+                );
+
+                let move_cap = body.max_move_cap(&stats);
                 spawn_insect(
                     &mut commands,
                     **body_pos,
-                    InsectBody::new(
-                        parts
-                            .into_iter()
-                            .map(|part_pos| *body.get_part(part_pos).unwrap())
-                            .collect(),
-                    ),
+                    body,
                     *body_team,
-                    MoveCap(body.max_move_cap(&stats)),
+                    MoveCap(move_cap),
                 );
             }
 
