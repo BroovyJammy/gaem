@@ -34,6 +34,13 @@ impl PartDirection {
             _ => unreachable!(),
         }
     }
+
+    pub fn rotate_ivec(&self, mut ivec: IVec2) -> IVec2 {
+        for _ in 0..=self.to_u8() {
+            ivec = IVec2::new(-ivec.y, ivec.x)
+        }
+        ivec
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -60,6 +67,26 @@ impl InsectPart {
             health: stats.0[kind.0].max_health,
         }
     }
+
+    // pub fn connections(&self, stats: &BodyParts) -> Vec<PartDirection> {
+    //     stats[self.kind]
+    //         .connections
+    //         .iter()
+    //         .map(|&c| {
+    //             if c == IVec2::new(0, -1) {
+    //                 PartDirection::Down
+    //             } else if c == IVec2::new(0, 1) {
+    //                 PartDirection::Up
+    //             } else if c == IVec2::new(-1, 0) {
+    //                 PartDirection::Left
+    //             } else if c == IVec2::new(1, 0) {
+    //                 PartDirection::Right
+    //             } else {
+    //                 unreachable!()
+    //             }
+    //         })
+    //         .collect()
+    // }
 }
 
 #[derive(Component, Clone)]
@@ -108,7 +135,7 @@ impl InsectBody {
 
     /// # Panics
     /// Panics if `local_tile` does not have any insect parts on it
-    pub fn adjacent_parts(
+    pub fn _adjacent_parts(
         &self,
         local_tile: (u32, u32),
     ) -> impl Iterator<Item = Option<&InsectPart>> {
@@ -263,20 +290,27 @@ pub fn update_insect_body_tilemap(
     }
 }
 
-pub fn merge_insect_bodies(a: &InsectBody, b: &InsectBody, rng: &mut StdRng) -> InsectBody {
+pub fn merge_insect_bodies(
+    a: &InsectBody,
+    b: &InsectBody,
+    rng: &mut StdRng,
+    stats: &BodyParts,
+) -> InsectBody {
     let dir = PartDirection::from_u8(rng.gen_range(0..4));
     let b = b.make_new_rotated(dir);
 
-    let filter = |body: &InsectBody, part: &&InsectPart| {
-        match part.kind {
-            InsectPartKind(0 | 3) => (),
-            InsectPartKind(_) => return false,
-        };
-
-        body.adjacent_parts(part.position)
-            .any(|opt_part| match opt_part {
-                None => true,
-                Some(part) => matches!(part.kind, InsectPartKind(1 | 2)),
+    let filter = |body: &InsectBody, part: &&InsectPart, stats: &BodyParts| {
+        stats[part.kind]
+            .connections
+            .iter()
+            .map(|&c| UVec2::from(part.position).as_ivec2() + part.rotation.rotate_ivec(c))
+            .any(|adjacent| {
+                if adjacent.x < 0 || adjacent.y < 0 {
+                    return false;
+                }
+                body.used_tiles
+                    .contains(&(adjacent.x as u32, adjacent.y as u32))
+                    == false
             })
     };
 
@@ -296,8 +330,8 @@ pub fn merge_insect_bodies(a: &InsectBody, b: &InsectBody, rng: &mut StdRng) -> 
             .unwrap()
     }
 
-    let a_flesh = pick_edge_flesh(filter, a, rng);
-    let b_flesh = pick_edge_flesh(filter, &b, rng);
+    let a_flesh = pick_edge_flesh(|a, b| filter(a, b, &stats), a, rng);
+    let b_flesh = pick_edge_flesh(|a, b| filter(a, b, &stats), &b, rng);
 
     let mut pad_x_start = 0;
     let mut pad_y_start = 0;
@@ -320,14 +354,14 @@ pub fn merge_insect_bodies(a: &InsectBody, b: &InsectBody, rng: &mut StdRng) -> 
         let offset_x = (a_flesh.position.0 + pad_x_start) - b_flesh.position.0;
         let offset_y = (a_flesh.position.1 + pad_y_start) - b_flesh.position.1;
         let new_pos = (part.position.0 + offset_x, part.position.1 + offset_y);
-        if let Some(existing_part) = wip_insect_parts
+        if let Some(_existing_part) = wip_insect_parts
             .iter_mut()
             .find(|part| part.position == new_pos)
         {
-            *existing_part = InsectPart {
-                position: new_pos,
-                ..*part
-            };
+            // *existing_part = InsectPart {
+            //     position: new_pos,
+            //     ..*part
+            // };
             continue;
         };
 
@@ -340,13 +374,18 @@ pub fn merge_insect_bodies(a: &InsectBody, b: &InsectBody, rng: &mut StdRng) -> 
     InsectBody::new(wip_insect_parts)
 }
 
-pub fn generate_body(sources: &[InsectBody], generations: u8, rng: &mut StdRng) -> InsectBody {
+pub fn generate_body(
+    sources: &[InsectBody],
+    generations: u8,
+    rng: &mut StdRng,
+    stats: &BodyParts,
+) -> InsectBody {
     let (lhs, rhs) = match generations {
         0 => return sources[rng.gen_range(0..sources.len())].clone(),
         _ => (
-            generate_body(sources, generations - 1, rng),
-            generate_body(sources, generations - 1, rng),
+            generate_body(sources, generations - 1, rng, stats),
+            generate_body(sources, generations - 1, rng, stats),
         ),
     };
-    merge_insect_bodies(&lhs, &rhs, rng)
+    merge_insect_bodies(&lhs, &rhs, rng, stats)
 }

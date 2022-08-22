@@ -55,6 +55,7 @@ impl std::ops::Index<InsectPartKind> for BodyParts {
         &self.0[index.0]
     }
 }
+
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct BodyPartDescriptor {
     pub name: String,
@@ -62,7 +63,7 @@ pub struct BodyPartDescriptor {
     pub move_bonus: u32,
     pub damage: u32,
     pub sprite_idx: usize,
-    pub connections: Vec<Vec2>,
+    pub connections: Vec<IVec2>,
     pub pivot: Vec2,
 }
 

@@ -172,7 +172,12 @@ fn insert_units(mut commands: Commands, stats: Res<BodyParts>) {
                 ]);
                 let seed = seeds.pop().unwrap_or_else(|| rand::thread_rng().gen());
                 debug!(seed);
-                insect_body::generate_body(&[src_1, src_2], 4, &mut StdRng::seed_from_u64(seed))
+                insect_body::generate_body(
+                    &[src_1, src_2],
+                    4,
+                    &mut StdRng::seed_from_u64(seed),
+                    &stats,
+                )
             };
             let move_cap = MoveCap(body.max_move_cap(&stats));
 
