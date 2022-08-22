@@ -182,8 +182,8 @@ fn insert_units(mut commands: Commands, stats: Res<BodyParts>) {
     let mut team = true;
     let mut to_spawn = 99;
     let mut seeds = vec![];
-    for x in 0..MAP_SIZE {
-        for y in 0..MAP_SIZE {
+    for x in 5..(MAP_SIZE - 5) {
+        for y in 5..(MAP_SIZE - 5) {
             if y % 10 != 0 {
                 continue;
             }
@@ -204,11 +204,11 @@ fn insert_units(mut commands: Commands, stats: Res<BodyParts>) {
             let body = {
                 let src_1 = InsectBody::new(vec![
                     InsectPart::new((0, 0), InsectPartKind(1), PartDirection::Down, &stats),
-                    InsectPart::new((0, 1), InsectPartKind(0), PartDirection::Up, &stats),
+                    InsectPart::new((0, 1), InsectPartKind(3), PartDirection::Up, &stats),
                     InsectPart::new((1, 1), InsectPartKind(0), PartDirection::Right, &stats),
                 ]);
                 let src_2 = InsectBody::new(vec![
-                    InsectPart::new((0, 0), InsectPartKind(0), PartDirection::Down, &stats),
+                    InsectPart::new((0, 0), InsectPartKind(3), PartDirection::Down, &stats),
                     InsectPart::new((0, 1), InsectPartKind(0), PartDirection::Up, &stats),
                     InsectPart::new((1, 1), InsectPartKind(2), PartDirection::Right, &stats),
                 ]);

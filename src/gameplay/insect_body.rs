@@ -163,7 +163,7 @@ impl InsectBody {
         for part in self.parts.iter() {
             let mut pos = part.position;
             let mut rot = part.rotation;
-            for _ in 0..=dir.to_u8() {
+            for _ in 0..dir.to_u8() {
                 pos = (pos.1, largest - pos.0);
                 rot = match rot {
                     PartDirection::Right => PartDirection::Down,
@@ -305,7 +305,7 @@ pub fn merge_insect_bodies(
             .map(|&c| UVec2::from(part.position).as_ivec2() + part.rotation.rotate_ivec(c))
             .any(|adjacent| {
                 if adjacent.x < 0 || adjacent.y < 0 {
-                    return false;
+                    return true;
                 }
                 !body
                     .used_tiles
@@ -320,8 +320,12 @@ pub fn merge_insect_bodies(
         body: &'a InsectBody,
         rng: &mut StdRng,
     ) -> &'a InsectPart {
+        // ) -> Option<&'a InsectPart> {
         let hard_insect_parts = body.parts.iter().filter(|part| filter(body, part)).count();
         assert!(hard_insect_parts > 0);
+        // if hard_insect_parts == 0 {
+        //     return None;
+        // };
         body.parts
             .iter()
             .filter(|part| filter(body, part))
@@ -330,7 +334,15 @@ pub fn merge_insect_bodies(
     }
 
     let a_flesh = pick_edge_flesh(|a, b| filter(a, b, stats), a, rng);
+    // if let None = a_flesh {
+    //     return a.clone();
+    // }
+    // let a_flesh = a_flesh.unwrap();
     let b_flesh = pick_edge_flesh(|a, b| filter(a, b, stats), &b, rng);
+    // if let None = b_flesh {
+    //     return b;
+    // }
+    // let b_flesh = b_flesh.unwrap();
 
     let mut pad_x_start = 0;
     let mut pad_y_start = 0;
@@ -375,6 +387,11 @@ pub fn merge_insect_bodies(
                 .map(|&c| part.rotation.rotate_ivec(c))
                 .collect::<HashSet<IVec2>>();
 
+            if existing_part_connections == incoming_part_connections
+                && stats[existing_part.kind].base
+            {
+                // do nothing
+            }
             if existing_part_connections.is_subset(&incoming_part_connections) {
                 *existing_part = InsectPart {
                     position: new_pos,
