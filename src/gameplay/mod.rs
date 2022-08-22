@@ -51,7 +51,7 @@ impl Plugin for GameplayPlugin {
                     .after(InputHandlingSystem),
             )
             .insert_resource(CursorTilePos {
-                pos: UVec2::new(20, 20),
+                pos: IVec2::new(20, 20),
                 snap_camera_to: true,
             })
             .add_event::<TileSelected>()
@@ -100,7 +100,7 @@ struct SelectedUnit {
 }
 
 #[derive(Component, Deref, Copy, Clone, Debug, Eq, PartialEq)]
-pub struct UnitPos(UVec2);
+pub struct UnitPos(IVec2);
 
 #[derive(Clone, Component, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum Team {
@@ -175,7 +175,7 @@ fn insert_units(mut commands: Commands) {
                 commands
                     .spawn()
                     .insert_bundle(TransformBundle { ..default() })
-                    .insert(UnitPos(UVec2::new(x, y)))
+                    .insert(UnitPos(IVec2::new(x as i32, y as i32)))
                     .insert(body)
                     .insert(UpdateBody)
                     .insert(team)
@@ -208,7 +208,7 @@ fn handle_select_action(
             match team {
                 Team::Goodie => commands.insert_resource(SelectedUnit {
                     unit,
-                    at_local_pos: cursor_pos.pos - pos.0,
+                    at_local_pos: (cursor_pos.pos - pos.0).as_uvec2(),
                 }),
                 Team::Baddie => commands.remove_resource::<SelectedUnit>(),
             }
@@ -229,9 +229,9 @@ fn handle_select_action(
             units.iter().map(|(a, b, c, _, _)| (a, b, c)),
         ) {
             let (_, mut unit_pos, _, _, mut move_cap) = units.get_mut(selected_unit.unit).unwrap();
-            let move_unit_to = cursor_pos.pos - selected_unit.at_local_pos;
+            let move_unit_to = cursor_pos.pos - selected_unit.at_local_pos.as_ivec2();
 
-            let move_delta = unit_pos.0.as_ivec2() - move_unit_to.as_ivec2();
+            let move_delta = unit_pos.0 - move_unit_to;
             move_cap.0 -= (move_delta.x.abs() + move_delta.y.abs()) as u32;
 
             unit_pos.0 = move_unit_to;
@@ -249,11 +249,11 @@ fn can_move_unit<'a>(
     move_cap: MoveCap,
     mover_body: &InsectBody,
     grab_point: UVec2,
-    from: UVec2,
-    to: UVec2,
+    from: IVec2,
+    to: IVec2,
     units: impl IntoIterator<Item = (Entity, &'a UnitPos, &'a InsectBody)>,
 ) -> bool {
-    let move_delta = (to.as_ivec2() - grab_point.as_ivec2()) - from.as_ivec2();
+    let move_delta = (to - grab_point.as_ivec2()) - from;
 
     (move_delta.x.abs() + move_delta.y.abs()) as u32 <= move_cap.0
         && !units.into_iter().any(|(unit_entity, unit_pos, body)| {
@@ -261,14 +261,17 @@ fn can_move_unit<'a>(
                 return false;
             }
 
-            mover_body.used_tiles.iter().any(|(x, y)| {
-                if x + to.x < grab_point.x || y + to.y < grab_point.y {
+            mover_body.used_tiles.iter().any(|&(x, y)| {
+                if x as i32 + to.x < grab_point.x as i32 || y as i32 + to.y < grab_point.y as i32 {
                     return false;
                 }
 
                 body.contains_tile(
                     *unit_pos,
-                    UVec2::new(x + to.x - grab_point.x, y + to.y - grab_point.y),
+                    IVec2::new(
+                        x as i32 + to.x - grab_point.x as i32,
+                        y as i32 + to.y - grab_point.y as i32,
+                    ),
                 )
             })
         })
@@ -296,7 +299,7 @@ fn highlight_movable_tiles(
             body,
             selected_unit.at_local_pos,
             **unit_pos,
-            tile_pos.into(),
+            UVec2::as_ivec2(&tile_pos.into()),
             units.iter().map(|(a, b, c, _)| (a, b, c)),
         ) {
             *texture = Select::Active.into();
@@ -408,7 +411,7 @@ fn camera_to_selected_tile(
     let map_entity = layer_to_map.0[&Layer::Select];
     let map_trans = *set.p1().get(map_entity).unwrap();
     let selected_tile_pos = map_trans.translation
-        + (selected_tile.pos * UVec2::splat(TILE_SIZE))
+        + (selected_tile.pos * IVec2::splat(TILE_SIZE as i32))
             .extend(0)
             .as_vec3();
 
@@ -423,13 +426,13 @@ fn camera_to_selected_tile(
 // I use `UVec2` instead of `TilePos` bc `UVec2` impls more useful traits
 #[derive(Default)]
 pub struct CursorTilePos {
-    pub pos: UVec2,
+    pub pos: IVec2,
     pub snap_camera_to: bool,
 }
 
 // Event that talks to the gameplay part
 #[derive(Deref)]
-pub struct TileSelected(UVec2);
+pub struct TileSelected(IVec2);
 
 // Adapted from Star Machine, a game that's currently on hold
 // Assumes that the map is at the origin
@@ -461,7 +464,7 @@ fn update_cursor_pos(
         .truncate()
             / TILE_SIZE as f32;
 
-        (new_pos.cmpge(Vec2::ZERO).all()).then(|| new_pos.as_uvec2())
+        (new_pos.cmpge(Vec2::ZERO).all()).then(|| new_pos.as_ivec2())
     });
     if let Some(new_pos) = new_pos {
         cursor.pos = new_pos;
@@ -474,7 +477,7 @@ pub fn highlight_hovered_tile(
     cursor_pos: Res<CursorTilePos>,
 ) {
     for (mut texture, &tile_pos) in &mut tiles {
-        let tile_pos: UVec2 = tile_pos.into();
+        let tile_pos = UVec2::as_ivec2(&tile_pos.into());
         *texture = match tile_pos == cursor_pos.pos {
             true => Select::Active,
             false => Select::Inactive,
@@ -524,10 +527,10 @@ fn attack(
                     }
 
                     for defender_part in defender_body.parts.iter() {
-                        let global_attacker_part_pos = attacker_pos.as_ivec2()
-                            + UVec2::from(attacker_part.position).as_ivec2();
-                        let global_defender_part_pos = defender_pos.as_ivec2()
-                            + UVec2::from(defender_part.position).as_ivec2();
+                        let global_attacker_part_pos =
+                            attacker_pos.0 + UVec2::from(attacker_part.position).as_ivec2();
+                        let global_defender_part_pos =
+                            defender_pos.0 + UVec2::from(defender_part.position).as_ivec2();
                         let delta = global_defender_part_pos - global_attacker_part_pos;
 
                         if delta.x.abs() + delta.y.abs() == 1 {
