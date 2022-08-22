@@ -366,10 +366,7 @@ pub fn merge_insect_bodies(a: &InsectBody, b: &InsectBody, rng: &mut StdRng) -> 
 
 pub fn generate_body(sources: &[InsectBody], generations: u8, rng: &mut StdRng) -> InsectBody {
     let (lhs, rhs) = match generations {
-        0 => (
-            sources[rng.gen_range(0..sources.len())].clone(),
-            sources[rng.gen_range(0..sources.len())].clone(),
-        ),
+        0 => return sources[rng.gen_range(0..sources.len())].clone(),
         _ => (
             generate_body(sources, generations - 1, rng),
             generate_body(sources, generations - 1, rng),

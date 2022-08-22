@@ -169,7 +169,7 @@ fn insert_units(mut commands: Commands) {
                 ]);
                 let seed = seeds.pop().unwrap_or_else(|| rand::thread_rng().gen());
                 debug!(seed);
-                insect_body::generate_body(&[src_1, src_2], 3, &mut StdRng::seed_from_u64(seed))
+                insect_body::generate_body(&[src_1, src_2], 4, &mut StdRng::seed_from_u64(seed))
             };
             let move_cap = MoveCap(body.max_move_cap());
 
