@@ -10,14 +10,23 @@ impl Plugin for AssetsPlugin {
             LoadingState::new(AppState::AssetsLoading)
                 .continue_to_state(AppState::Game)
                 .with_dynamic_collections::<StandardDynamicAssetCollection>(vec![
+                    // put UI-related things here
+                    // (fonts, images, sounds, scenes)
                     "ui.assets",
+                    // put gameplay-related things here
+                    // (spritesheets, bodyparts, sounds, etc)
                     "game.assets",
+                    // put cutscene-related things here
+                    // (images, metadata, scenes, etc)
+                    "cutscene.assets",
                 ])
                 .with_collection::<UiAssets>()
                 .with_collection::<BodyPartAssets>()
+                .with_collection::<CutsceneAssets>()
                 .with_collection::<MapAssets>(),
         );
         app.add_plugin(TomlAssetPlugin::<BodyPartAsset>::new(&["bodypart.toml"]));
+        app.add_plugin(TomlAssetPlugin::<CutsceneMetaAsset>::new(&["cutscene.toml"]));
         // app.add_system_to_stage(CoreStage::Last, debug_progress.run_in_state(AppState::AssetsLoading));
         app.add_enter_system(AppState::Game, debug_bodyparts);
     }
@@ -72,6 +81,27 @@ pub struct BodyPartDescriptor {
     pub sprite_idx: usize,
     pub connections: Vec<IVec2>,
     pub pivot: Vec2,
+}
+
+#[derive(bevy::reflect::TypeUuid, serde::Deserialize)]
+#[uuid = "f2ff9826-32c4-4a69-95df-2428b9a6e6b3"]
+pub struct CutsceneMetaAsset {
+    pub title: String,
+    pub dialogue: Vec<DialogueEntry>,
+    // TODO (boxy) add any other info you want for each cutscene here
+}
+
+#[derive(serde::Deserialize)]
+pub struct DialogueEntry {
+    pub name: String,
+    pub text: String,
+}
+
+#[derive(AssetCollection)]
+pub struct CutsceneAssets {
+    #[asset(key = "meta.cutscenes", collection(typed))]
+    pub meta: Vec<Handle<CutsceneMetaAsset>>,
+    // TODO (ida) also add any bevy scenes to use for cutscenes here
 }
 
 // [INTERNAL THINGS BELOW] //

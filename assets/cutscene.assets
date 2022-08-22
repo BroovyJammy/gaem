@@ -1,0 +1,11 @@
+({
+    "meta.cutscenes": Folder (
+        path: "cutscenes/",
+    ),
+    "dating.spinderella": File (
+        path: "image/dating/spinderella.png",
+    ),
+    "dating.silkarella": File (
+        path: "image/dating/silkarella.png",
+    ),
+})
