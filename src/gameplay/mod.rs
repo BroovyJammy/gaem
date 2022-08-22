@@ -15,13 +15,6 @@ pub mod insect_body;
 
 impl Plugin for GameplayPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(select_unit.run_in_state(AppState::Game));
-        app.add_system(
-            move_unit
-                .run_in_state(AppState::Game)
-                .run_in_state(Turn::goodie())
-                .run_if_resource_exists::<SelectedUnit>(),
-        );
         app.add_system(
             highlight_movable_tiles
                 .run_in_state(AppState::Game)
@@ -75,7 +68,7 @@ impl Plugin for GameplayPlugin {
                     .after("update_cursor_pos"),
             )
             .add_system(
-                select_tile
+                handle_select_action
                     .run_in_state(AppState::Game)
                     .run_in_state(Turn::goodie())
                     .after("update_cursor_pos"),
@@ -194,29 +187,46 @@ fn insert_units(mut commands: Commands) {
     }
 }
 
-fn select_unit(
-    mut commands: Commands,
-    mut selected_tiles: EventReader<TileSelected>,
+fn handle_select_action(
+    mut commands: Commands<'_, '_>,
+    mut tile_selected_writer: EventWriter<TileSelected>,
+    actioners: Query<&ActionState<Action>>,
+    cursor_pos: Res<CursorTilePos>,
     selected_unit: Option<Res<SelectedUnit>>,
-    units: Query<(Entity, &UnitPos, &InsectBody, &Team)>,
+    mut units: Query<(Entity, &mut UnitPos, &InsectBody, &Team)>,
 ) {
-    let selected_unit = selected_unit.map(|unit| unit.unit);
+    if actioners.single().just_pressed(Action::Select) == false {
+        return;
+    }
+    tile_selected_writer.send(TileSelected(cursor_pos.pos));
 
-    // `.last()` bc it's better to eat simultaneous inputs than cause weird bugs
-    if let Some(selected_tile) = selected_tiles.iter().last() {
-        for (unit, pos, body, team) in &units {
-            if body.contains_tile(*pos, **selected_tile) {
-                // There's a unit on this tile!
-                if *team == Team::Baddie || Some(unit) == selected_unit {
-                    // The unit is already selected, or clicked on a baddie. Unselect.
-                    commands.remove_resource::<SelectedUnit>();
-                } else {
-                    commands.insert_resource(SelectedUnit {
-                        unit,
-                        at_local_pos: selected_tile.0 - pos.0,
-                    });
-                }
+    for (unit, pos, body, team) in &units {
+        if body.contains_tile(*pos, cursor_pos.pos) {
+            match team {
+                Team::Goodie => commands.insert_resource(SelectedUnit {
+                    unit,
+                    at_local_pos: cursor_pos.pos - pos.0,
+                }),
+                Team::Baddie => commands.remove_resource::<SelectedUnit>(),
             }
+            return;
+        }
+    }
+
+    if let Some(selected_unit) = selected_unit {
+        let (_, move_unit_from, selected_body, _) = units.get(selected_unit.unit).unwrap();
+        if can_move_unit(
+            selected_unit.unit,
+            selected_body,
+            selected_unit.at_local_pos,
+            **move_unit_from,
+            cursor_pos.pos,
+            units.iter().map(|(a, b, c, _)| (a, b, c)),
+        ) {
+            let (_, mut unit_pos, _, _) = units.get_mut(selected_unit.unit).unwrap();
+            let move_unit_to = cursor_pos.pos - selected_unit.at_local_pos;
+            unit_pos.0 = move_unit_to;
+            commands.remove_resource::<SelectedUnit>();
         }
     }
 }
@@ -267,31 +277,6 @@ fn highlight_movable_tiles(
             &units,
         ) {
             *texture = Select::Active.into();
-        }
-    }
-}
-
-fn move_unit(
-    mut commands: Commands,
-    mut tile_selected: EventReader<TileSelected>,
-    mut units: Query<(Entity, &mut UnitPos, &InsectBody)>,
-    selected_unit: Res<SelectedUnit>,
-) {
-    if let Some(selected_tile) = tile_selected.iter().last() {
-        let (_, move_unit_from, selected_body) = units.get(selected_unit.unit).unwrap();
-
-        if can_move_unit(
-            selected_unit.unit,
-            selected_body,
-            selected_unit.at_local_pos,
-            **move_unit_from,
-            **selected_tile,
-            &units,
-        ) {
-            let (_, mut unit_pos, _) = units.get_mut(selected_unit.unit).unwrap();
-            let move_unit_to = selected_tile.0 - selected_unit.at_local_pos;
-            unit_pos.0 = move_unit_to;
-            commands.remove_resource::<SelectedUnit>();
         }
     }
 }
@@ -470,16 +455,6 @@ pub fn highlight_hovered_tile(
             false => Select::Inactive,
         }
         .into();
-    }
-}
-
-fn select_tile(
-    mut selecteds: EventWriter<TileSelected>,
-    actioners: Query<&ActionState<Action>>,
-    cursor_pos: Res<CursorTilePos>,
-) {
-    if actioners.single().just_pressed(Action::Select) {
-        selecteds.send(TileSelected(cursor_pos.pos));
     }
 }
 
