@@ -14,6 +14,7 @@ mod prelude {
     pub use std::time::{Duration, Instant};
 
     pub use crate::AppState;
+    pub use crate::{despawn_with, remove_resource};
 }
 
 mod asset;
@@ -128,4 +129,25 @@ fn debug_turn(current: Res<CurrentState<Turn>>) {
             }
         );
     }
+}
+
+// some utils to help with cleanup
+
+/// Despawn all entities with a specific marker component
+///
+/// Useful when exiting states
+pub fn despawn_with<T: Component>(
+    mut cmd: Commands,
+    q: Query<Entity, With<T>>,
+) {
+    for e in q.iter() {
+        cmd.entity(e).despawn_recursive();
+    }
+}
+
+/// Remove a resource using Commands
+pub fn remove_resource<T: Send + Sync + 'static>(
+    mut cmd: Commands,
+) {
+    cmd.remove_resource::<T>();
 }

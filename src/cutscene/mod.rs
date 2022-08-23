@@ -1,6 +1,6 @@
 use bevy::utils::FloatOrd;
 
-use crate::{prelude::*, asset::{CutsceneAssets, UiScenes}, scene_export};
+use crate::{prelude::*, asset::{CutsceneAssets, UiScenes}, scene_export, ui::{TextPurpose, TextProps}};
 
 pub struct CutscenePlugin;
 
@@ -10,9 +10,15 @@ impl Plugin for CutscenePlugin {
             cutscene_driver
                 .run_in_state(AppState::PlayCutscene)
         );
+        app.add_system(
+            update_dialogue_box
+                .run_in_state(AppState::PlayCutscene)
+        );
         app.add_enter_system(AppState::PlayCutscene, init_cutscene);
         app.add_enter_system(AppState::PlayCutscene, setup_dialogue_box);
         app.add_exit_system(AppState::PlayCutscene, cleanup_cutscene);
+        app.add_exit_system(AppState::PlayCutscene, despawn_with::<DialogueBox>);
+        app.add_exit_system(AppState::PlayCutscene, remove_resource::<CutscenePlayerState>);
         app.register_type::<DialogueBox>();
     }
 }
@@ -129,7 +135,6 @@ fn cleanup_cutscene(
     for handle in player.active_scenes.drain() {
         scenespawner.despawn(handle);
     }
-    commands.remove_resource::<CutscenePlayerState>();
 }
 
 fn cutscene_driver(
@@ -234,9 +239,63 @@ fn update_dialogue_box(
     mut commands: Commands,
     player: Res<CutscenePlayerState>,
     q: Query<Entity, With<DialogueBox>>,
+    current: Res<CurrentCutscene>,
+    assets: Res<Assets<CutsceneMetaAsset>>,
+    // FIXME: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+    mut frame: Local<usize>,
 ) {
-    if !player.is_changed() {
+    // FIXME: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+    *frame += 1;
+    if !(player.is_changed() || *frame == 2) {
         return;
+    }
+    if let Ok(e) = q.get_single() {
+        commands.entity(e).despawn_descendants();
+        let meta = assets.get(current.handle.as_ref().unwrap()).unwrap();
+        let (name, text) = if let Some(entry) = meta.dialogue.get(player.current_dialogue) {
+            (entry.name.clone(), entry.text.clone())
+        } else {
+            return;
+        };
+        let name = commands.spawn_bundle(NodeBundle {
+            color: UiColor(Color::DARK_GRAY),
+            style: Style {
+                flex_wrap: FlexWrap::Wrap,
+                margin: UiRect::all(Val::Px(8.0)),
+                ..Default::default()
+            },
+            ..Default::default()
+        }).with_children(|p| {
+            p.spawn_bundle(TextBundle {
+                ..Default::default()
+            }).insert(TextProps {
+                value: name,
+                purpose: TextPurpose::Heading,
+            });
+        }).id();
+        let text = commands.spawn_bundle(NodeBundle {
+            color: UiColor(Color::DARK_GRAY),
+            style: Style {
+                flex_direction: FlexDirection::Row,
+                align_content: AlignContent::FlexStart,
+                align_items: AlignItems::FlexStart,
+                justify_content: JustifyContent::FlexStart,
+                flex_wrap: FlexWrap::WrapReverse,
+                margin: UiRect::all(Val::Px(8.0)),
+                ..Default::default()
+            },
+            ..Default::default()
+        }).with_children(|p| {
+            for word in text.split_ascii_whitespace() {
+                p.spawn_bundle(TextBundle {
+                    ..Default::default()
+                }).insert(TextProps {
+                    value: format!("{} ", word),
+                    purpose: TextPurpose::Dialogue,
+                });
+            }
+        }).id();
+        commands.entity(e).push_children(&[name, text]);
     }
 }
 

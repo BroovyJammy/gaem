@@ -29,13 +29,13 @@ impl Plugin for UiPlugin {
 /// We use this instead of `Text` in blueprint scenes
 #[derive(Component, Clone, Default, Debug, Reflect, FromReflect)]
 #[reflect(Component)]
-struct TextProps {
-    value: String,
-    purpose: TextPurpose,
+pub struct TextProps {
+    pub value: String,
+    pub purpose: TextPurpose,
 }
 
 #[derive(Default, Clone, Copy, Debug, Reflect, FromReflect)]
-enum TextPurpose {
+pub enum TextPurpose {
     #[default]
     Unknown,
     Heading,

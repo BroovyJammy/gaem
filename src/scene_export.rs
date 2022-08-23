@@ -169,7 +169,6 @@ fn setup_spatial(
     q: Query<(Entity, &Transform), (Added<Transform>, Without<GlobalTransform>)>,
 ) {
     for (e, xf) in q.iter() {
-        dbg!(e);
         commands.entity(e).insert_bundle(SpatialBundle {
             transform: *xf,
             ..Default::default()
@@ -182,7 +181,6 @@ fn setup_untextured_sprite(
     q: Query<Entity, (Added<Sprite>, Without<Handle<Image>>)>,
 ) {
     for e in q.iter() {
-        dbg!(e);
         commands.entity(e).insert(bevy::render::texture::DEFAULT_IMAGE_HANDLE.typed::<Image>());
     }
 }
