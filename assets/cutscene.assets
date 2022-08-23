@@ -1,6 +1,9 @@
 ({
-    "meta.cutscenes": Folder (
+    "cutscenes.meta": Folder (
         path: "cutscenes/",
+    ),
+    "cutscenes.scenes": Folder (
+        path: "scene/cutscenes/",
     ),
     "dating.spinderella": File (
         path: "image/dating/spinderella.png",

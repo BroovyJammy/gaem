@@ -20,6 +20,7 @@ mod asset;
 mod dating;
 mod gameplay;
 mod ui;
+mod cutscene;
 
 mod scene_export;
 
@@ -27,16 +28,19 @@ use gameplay::{Team, Turn};
 
 use crate::prelude::*;
 
-// Feel free to move this
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Default, Reflect, FromReflect)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Default, Reflect, FromReflect, serde::Deserialize)]
 pub enum AppState {
     Dating,
     #[default]
     AssetsLoading,
     MainMenu,
     Game,
+    /// you must insert resource CurrentCutscene to select cutscene to play
+    PlayCutscene,
+    // dev tools / editors
     EditorCutscene,
     EditorLevelMap,
+    EditorEzScene,
 }
 
 fn main() {
@@ -84,6 +88,7 @@ fn main() {
     app.add_plugin(ui::UiPlugin);
     app.add_plugin(gameplay::GameplayPlugin);
     dating::add_self_to_app(&mut app);
+    app.add_plugin(cutscene::CutscenePlugin);
     app.add_plugin(scene_export::SceneExportPlugin);
 
     // some debug diagnostics stuff
@@ -93,6 +98,9 @@ fn main() {
         app.add_system(debug_nextstate.exclusive_system().at_end());
         app.add_system(debug_turn.exclusive_system().at_start());
     }
+
+    // temporary for testing
+    app.insert_resource(cutscene::CurrentCutscene::new("iyes finds god"));
 
     // let's gooo
     app.run();

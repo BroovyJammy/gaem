@@ -11,4 +11,7 @@
     "scene.main_menu": File (
         path: "scene/main_menu.scn.ron",
     ),
+    "scene.dialogue_box": File (
+        path: "scene/dialogue_box.scn.ron",
+    ),
 })

@@ -1,7 +1,10 @@
+use std::marker::PhantomData;
+
 use crate::{
     gameplay::{insect_body::InsectPartKind, map::TerrainKind},
-    prelude::*,
+    prelude::*, cutscene::CutsceneMetaAsset,
 };
+use bevy::asset::Asset;
 use bevy_asset_loader::prelude::*;
 use bevy_common_assets::toml::TomlAssetPlugin;
 
@@ -38,6 +41,15 @@ impl Plugin for AssetsPlugin {
         // app.add_system_to_stage(CoreStage::Last, debug_progress.run_in_state(AppState::AssetsLoading));
         // app.add_enter_system(AppState::Game, debug_bodyparts);
         app.add_startup_system(enable_hot_reloading);
+
+        // workaround cuz scenes dont support asset handles properly
+        app.register_type::<HandleFromPath<Image>>();
+        app.add_system(setup_handle_from_path::<Image>);
+        app.register_type::<HandleFromPath<Font>>();
+        app.add_system(setup_handle_from_path::<Font>);
+        app.register_type::<HandleFromPath<DynamicScene>>();
+        app.add_system(setup_handle_from_path::<DynamicScene>);
+        // … add others if needed
     }
 }
 
@@ -69,6 +81,8 @@ pub struct UiAssets {
 pub struct UiScenes {
     #[asset(key = "scene.main_menu")]
     pub main_menu: Handle<DynamicScene>,
+    #[asset(key = "scene.dialogue_box")]
+    pub dialogue_box: Handle<DynamicScene>,
 }
 
 /// This will be available as a resource
@@ -115,25 +129,15 @@ pub struct TerrainDescriptor {
     pub wall: bool,
 }
 
-#[derive(bevy::reflect::TypeUuid, serde::Deserialize)]
-#[uuid = "f2ff9826-32c4-4a69-95df-2428b9a6e6b3"]
-pub struct CutsceneMetaAsset {
-    pub title: String,
-    pub dialogue: Vec<DialogueEntry>,
-    // TODO (boxy) add any other info you want for each cutscene here
-}
-
-#[derive(serde::Deserialize)]
-pub struct DialogueEntry {
-    pub name: String,
-    pub text: String,
-}
-
-#[derive(AssetCollection)]
-pub struct CutsceneAssets {
-    #[asset(key = "meta.cutscenes", collection(typed))]
-    pub meta: Vec<Handle<CutsceneMetaAsset>>,
-    // TODO (ida) also add any bevy scenes to use for cutscenes here
+/// This can be added to things to be loaded from scenes
+/// (bevy cannot handle handles in scenes yet ;) )
+/// At runtime, will be replaced with handle
+#[derive(Component, Clone, Reflect, FromReflect)]
+#[reflect(Component)]
+pub struct HandleFromPath<T: Asset> {
+    pub path: String,
+    #[reflect(ignore)]
+    pub _pd: PhantomData<T>,
 }
 
 // [INTERNAL THINGS BELOW] //
@@ -206,6 +210,14 @@ impl FromWorld for TerrainMarker {
     }
 }
 
+#[derive(AssetCollection)]
+pub struct CutsceneAssets {
+    #[asset(key = "cutscenes.meta", collection(typed))]
+    pub meta: Vec<Handle<CutsceneMetaAsset>>,
+    #[asset(key = "cutscenes.scenes", collection(typed))]
+    pub scene: Vec<Handle<DynamicScene>>,
+}
+
 #[allow(dead_code)]
 fn enable_hot_reloading(ass: Res<AssetServer>) {
     ass.watch_for_changes().ok();
@@ -222,4 +234,33 @@ fn debug_progress(counter: Res<ProgressCounter>) {
 #[allow(dead_code)]
 fn debug_bodyparts(bp: Res<BodyParts>) {
     dbg!(&bp.0);
+}
+
+impl<T: Asset> Default for HandleFromPath<T> {
+    fn default() -> Self {
+        Self {
+            path: "".into(),
+            _pd: PhantomData,
+        }
+    }
+}
+
+impl<T: Asset> From<&str> for HandleFromPath<T> {
+    fn from(str: &str) -> Self {
+        Self {
+            path: str.into(),
+            _pd: PhantomData,
+        }
+    }
+}
+
+fn setup_handle_from_path<T: Asset>(
+    mut commands: Commands,
+    q: Query<(Entity, &HandleFromPath<T>), Changed<HandleFromPath<T>>>,
+    ass: Res<AssetServer>,
+) {
+    for (e, hfp) in q.iter() {
+        commands.entity(e)
+            .insert(ass.load::<T, _>(&hfp.path));
+    }
 }
