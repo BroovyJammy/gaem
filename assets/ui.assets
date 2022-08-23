@@ -8,4 +8,7 @@
     "font.light": File (
         path: "font/Sansation-Light.ttf",
     ),
+    "scene.main_menu": File (
+        path: "scene/main_menu.scn.ron",
+    ),
 })

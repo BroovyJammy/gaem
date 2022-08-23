@@ -52,6 +52,7 @@ bevy_common_assets = { version = "0.3.0", features = ["ron", "toml"] }
 bevy_prototype_debug_lines = "0.8.1"
 serde = "1.0.144"
 noise = "0.7"
+smallvec = "1.9.0"
 
 [patch.crates-io]
 bevy = { path = "../bevy" }

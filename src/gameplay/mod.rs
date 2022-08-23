@@ -18,6 +18,7 @@ pub struct GameplayPlugin;
 
 impl Plugin for GameplayPlugin {
     fn build(&self, app: &mut App) {
+        app.add_startup_system(init_global_camera);
         app.add_system(
             highlight_movable_tiles
                 .run_in_state(AppState::Game)
@@ -99,6 +100,12 @@ impl Plugin for GameplayPlugin {
                     .run_in_state(Turn::goodie()),
             );
     }
+}
+
+fn init_global_camera(mut commands: Commands) {
+    commands
+        .spawn_bundle(Camera2dBundle::default())
+        .insert_bundle(make_action_manager());
 }
 
 // Resource that only exists when a unit is selected

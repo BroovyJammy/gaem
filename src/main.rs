@@ -21,15 +21,19 @@ mod dating;
 mod gameplay;
 mod ui;
 
+mod scene_export;
+
 use gameplay::{Team, Turn};
 
 use crate::prelude::*;
 
 // Feel free to move this
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Default, Reflect, FromReflect)]
 pub enum AppState {
     Dating,
+    #[default]
     AssetsLoading,
+    MainMenu,
     Game,
 }
 
@@ -38,7 +42,7 @@ fn main() {
 
     // general configuration
     app.insert_resource(WindowDescriptor {
-        title: "BroovyJammy GAEM™ [PRE-ALPHA]".into(),
+        title: "BroovyJammy GÆM™ [PRE-ALPHA]".into(),
         present_mode: bevy::window::PresentMode::Fifo,
         resizable: true,
         width: 800.0,
@@ -66,6 +70,7 @@ fn main() {
 
     // our global things
     app.add_loopless_state(AppState::AssetsLoading);
+    app.register_type::<AppState>();
 
     // external plugins
     app.add_plugin(ProgressPlugin::new(AppState::AssetsLoading));
@@ -77,6 +82,7 @@ fn main() {
     app.add_plugin(ui::UiPlugin);
     app.add_plugin(gameplay::GameplayPlugin);
     dating::add_self_to_app(&mut app);
+    app.add_plugin(scene_export::SceneExportPlugin);
 
     // some debug diagnostics stuff
     #[cfg(debug_assertions)]

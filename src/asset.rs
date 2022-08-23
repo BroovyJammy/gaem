@@ -11,7 +11,7 @@ impl Plugin for AssetsPlugin {
     fn build(&self, app: &mut App) {
         app.add_loading_state(
             LoadingState::new(AppState::AssetsLoading)
-                .continue_to_state(AppState::Game)
+                .continue_to_state(AppState::MainMenu)
                 .with_dynamic_collections::<StandardDynamicAssetCollection>(vec![
                     // put UI-related things here
                     // (fonts, images, sounds, scenes)
@@ -24,6 +24,7 @@ impl Plugin for AssetsPlugin {
                     "cutscene.assets",
                 ])
                 .with_collection::<UiAssets>()
+                .with_collection::<UiScenes>()
                 .with_collection::<BodyPartAssets>()
                 .with_collection::<TerrainAssets>()
                 .with_collection::<CutsceneAssets>()
@@ -36,6 +37,7 @@ impl Plugin for AssetsPlugin {
         ]));
         // app.add_system_to_stage(CoreStage::Last, debug_progress.run_in_state(AppState::AssetsLoading));
         // app.add_enter_system(AppState::Game, debug_bodyparts);
+        app.add_startup_system(enable_hot_reloading);
     }
 }
 
@@ -61,6 +63,12 @@ pub struct UiAssets {
     pub spinderella: Handle<Image>,
     #[asset(key = "dating.silkarella")]
     pub silkarella: Handle<Image>,
+}
+
+#[derive(AssetCollection)]
+pub struct UiScenes {
+    #[asset(key = "scene.main_menu")]
+    pub main_menu: Handle<DynamicScene>,
 }
 
 /// This will be available as a resource
@@ -196,6 +204,11 @@ impl FromWorld for TerrainMarker {
         world.insert_resource(Terrain(all));
         TerrainMarker
     }
+}
+
+#[allow(dead_code)]
+fn enable_hot_reloading(ass: Res<AssetServer>) {
+    ass.watch_for_changes().ok();
 }
 
 #[allow(dead_code)]
