@@ -1,0 +1,41 @@
+[
+  (
+    entity: 18,
+    components: [
+      {
+        "bevy_transform::components::transform::Transform": (
+          translation: (
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+          ),
+          rotation: (0.0, 0.0, 0.0, 1.0),
+          scale: (
+            x: 1.0,
+            y: 1.0,
+            z: 1.0,
+          ),
+        ),
+      },
+      {
+        "gaem::asset::HandleFromPath<bevy_render::texture::image::Image>": (
+          path: "image/dating/spinderella.png",
+        ),
+      },
+      {
+        "bevy_sprite::sprite::Sprite": (
+          color: Rgba(
+            red: 1.0,
+            green: 1.0,
+            blue: 1.0,
+            alpha: 1.0,
+          ),
+          flip_x: true,
+          flip_y: false,
+          custom_size: None,
+          anchor: Center,
+        ),
+      },
+    ],
+  ),
+]
