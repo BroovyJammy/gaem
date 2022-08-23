@@ -26,9 +26,11 @@ impl Plugin for AssetsPlugin {
                 .with_collection::<MapAssets>(),
         );
         app.add_plugin(TomlAssetPlugin::<BodyPartAsset>::new(&["bodypart.toml"]));
-        app.add_plugin(TomlAssetPlugin::<CutsceneMetaAsset>::new(&["cutscene.toml"]));
+        app.add_plugin(TomlAssetPlugin::<CutsceneMetaAsset>::new(&[
+            "cutscene.toml",
+        ]));
         // app.add_system_to_stage(CoreStage::Last, debug_progress.run_in_state(AppState::AssetsLoading));
-        app.add_enter_system(AppState::Game, debug_bodyparts);
+        // app.add_enter_system(AppState::Game, debug_bodyparts);
     }
 }
 

@@ -180,8 +180,8 @@ pub struct TileSelected(IVec2);
 // Temporary (moved to fn since it grew)
 fn insert_units(mut commands: Commands, stats: Res<BodyParts>) {
     let mut team = true;
-    let mut to_spawn = 99;
-    let mut seeds = vec![/* 4263948614694578648 */];
+    let mut to_spawn = 999;
+    let mut seeds = vec![];
     for x in 5..(MAP_SIZE - 5) {
         for y in 5..(MAP_SIZE - 5) {
             if y % 10 != 0 {

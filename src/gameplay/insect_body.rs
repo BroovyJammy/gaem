@@ -3,7 +3,7 @@ use crate::asset::{BodyParts, MapAssets};
 use crate::prelude::*;
 use bevy::{
     sprite::Anchor,
-    utils::{HashMap, HashSet},
+    utils::{StableHashMap, StableHashSet},
 };
 use rand::{rngs::StdRng, Rng};
 
@@ -52,7 +52,7 @@ pub struct InsectPart {
 #[derive(Component, Clone)]
 pub struct InsectBody {
     pub parts: Vec<InsectPart>,
-    pub used_tiles: HashSet<(u32, u32)>,
+    pub used_tiles: StableHashSet<(u32, u32)>,
 }
 
 #[derive(Component)]
@@ -62,8 +62,8 @@ pub struct UpdateBody;
 #[derive(Component)]
 /// Used to keep track of the render entities corresponding to each insect part
 pub struct InsectRenderEntities {
-    pub hp_bar: HashMap<(u32, u32), Entity>,
-    pub body_part: HashMap<(u32, u32), Entity>,
+    pub hp_bar: StableHashMap<(u32, u32), Entity>,
+    pub body_part: StableHashMap<(u32, u32), Entity>,
 }
 
 impl InsectPart {
@@ -199,8 +199,8 @@ pub fn spawn_insect(
         .insert(UpdateBody)
         .insert(team)
         .insert(InsectRenderEntities {
-            hp_bar: HashMap::new(),
-            body_part: HashMap::new(),
+            hp_bar: StableHashMap::with_hasher(Default::default()),
+            body_part: StableHashMap::with_hasher(Default::default()),
         })
         .insert(move_cap)
         .insert_bundle(VisibilityBundle { ..default() });
@@ -305,7 +305,7 @@ pub fn merge_insect_bodies(
     ) -> impl Iterator<Item = IVec2> + 'a {
         stats[part.kind].connections.iter().flat_map(move |&c| {
             let c = part.rotation.rotate_ivec(c);
-            let adjacent = UVec2::from(part.position).as_ivec2() + part.rotation.rotate_ivec(c);
+            let adjacent = UVec2::from(part.position).as_ivec2() + c;
             if adjacent.x < 0 || adjacent.y < 0 {
                 return Some(c);
             }
@@ -328,9 +328,9 @@ pub fn merge_insect_bodies(
                 open_connections(a, &part, stats).collect::<Vec<_>>(),
             )
         })
-        .collect::<HashMap<_, _>>();
+        .collect::<StableHashMap<_, _>>();
 
-    let mut b_pos_for_connection = HashMap::<IVec2, Vec<IVec2>>::new();
+    let mut b_pos_for_connection = StableHashMap::with_hasher(Default::default());
     for part in b.parts.iter() {
         for connection in open_connections(&b, &part, stats) {
             b_pos_for_connection
@@ -397,12 +397,12 @@ pub fn merge_insect_bodies(
                 .connections
                 .iter()
                 .map(|&c| existing_part.rotation.rotate_ivec(c))
-                .collect::<HashSet<IVec2>>();
+                .collect::<StableHashSet<IVec2>>();
             let incoming_part_connections = stats[part.kind]
                 .connections
                 .iter()
                 .map(|&c| part.rotation.rotate_ivec(c))
-                .collect::<HashSet<IVec2>>();
+                .collect::<StableHashSet<IVec2>>();
 
             if existing_part_connections == incoming_part_connections
                 && stats[existing_part.kind].base
