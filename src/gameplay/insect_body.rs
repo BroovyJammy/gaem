@@ -294,7 +294,7 @@ pub fn merge_insect_bodies(
     b: &InsectBody,
     rng: &mut StdRng,
     stats: &BodyParts,
-) -> InsectBody {
+) -> Result<InsectBody, InsectBody> {
     let dir = PartDirection::from_u8(rng.gen_range(0..4));
     let b = b.make_new_rotated(dir);
 
@@ -340,23 +340,59 @@ pub fn merge_insect_bodies(
         }
     }
 
-    let possible_joins = a_connections_for_pos
-        .iter()
-        .flat_map(|(&pos, connections)| {
-            let b_pos_for_connection = &b_pos_for_connection;
-            connections.iter().flat_map(move |&connection| {
-                b_pos_for_connection
-                    .get(&-connection)
-                    .map_or([].iter(), |stuff| stuff.iter())
-                    .map(move |&b_position| (pos, connection, b_position))
-            })
-        })
-        .collect::<Vec<_>>();
-    if let None = possible_joins.first() {
-        todo!()
+    let mut possible_joins = Vec::new();
+    for (pos, connections) in a_connections_for_pos.iter() {
+        for &connection in connections.iter() {
+            for b_pos in b_pos_for_connection
+                .get(&-connection)
+                .map_or([].iter(), |stuff| stuff.iter())
+            {
+                possible_joins.push((*pos, connection, *b_pos));
+            }
+        }
     }
+    let (a_pos, join_dir, b_pos) = if let None = possible_joins.first() {
+        let filter = |body: &InsectBody, part: &&InsectPart| {
+            [
+                IVec2::new(0, 1),
+                IVec2::new(-1, 0),
+                IVec2::new(1, 0),
+                IVec2::new(0, -1),
+            ]
+            .into_iter()
+            .any(|c| {
+                let adjacent = UVec2::from(part.position).as_ivec2() + c;
+                if adjacent.x < 0 || adjacent.y < 0 {
+                    return true;
+                }
+                return !body
+                    .used_tiles
+                    .contains(&(adjacent.x as u32, adjacent.y as u32));
+            })
+        };
+        let a_edge_parts = a
+            .parts
+            .iter()
+            .filter(|part| filter(a, part))
+            .collect::<Vec<_>>();
+        let b_edge_parts = b
+            .parts
+            .iter()
+            .filter(|part| filter(&b, part))
+            .collect::<Vec<_>>();
+        assert!(a_edge_parts.len() > 0);
+        assert!(b_edge_parts.len() > 0);
+        let a_part = a_edge_parts[rng.gen_range(0..a_edge_parts.len())];
+        let b_part = b_edge_parts[rng.gen_range(0..b_edge_parts.len())];
+        (
+            IVec2::new(a_part.position.0 as i32, a_part.position.1 as i32),
+            IVec2::ZERO,
+            IVec2::new(b_part.position.0 as i32, b_part.position.1 as i32),
+        )
+    } else {
+        possible_joins[rng.gen_range(0..possible_joins.len())]
+    };
 
-    let (a_pos, join_dir, b_pos) = possible_joins[rng.gen_range(0..possible_joins.len())];
     let b_pos_in_a_space = a_pos + join_dir;
     let b_space_to_a_space = b_pos_in_a_space - b_pos;
 
@@ -433,7 +469,7 @@ pub fn merge_insect_bodies(
         });
     }
 
-    InsectBody::new(wip_insect_parts)
+    Ok(InsectBody::new(wip_insect_parts))
 
     // ...It was a graveyard smash
 }
@@ -443,12 +479,12 @@ pub fn generate_body(
     generations: u8,
     rng: &mut StdRng,
     stats: &BodyParts,
-) -> InsectBody {
+) -> Result<InsectBody, InsectBody> {
     let (lhs, rhs) = match generations {
-        0 => return sources[rng.gen_range(0..sources.len())].clone(),
+        0 => return Ok(sources[rng.gen_range(0..sources.len())].clone()),
         _ => (
-            generate_body(sources, generations - 1, rng, stats),
-            generate_body(sources, generations - 1, rng, stats),
+            generate_body(sources, generations - 1, rng, stats)?,
+            generate_body(sources, generations - 1, rng, stats)?,
         ),
     };
     merge_insect_bodies(&lhs, &rhs, rng, stats)

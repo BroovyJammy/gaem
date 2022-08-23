@@ -180,7 +180,7 @@ pub struct TileSelected(IVec2);
 // Temporary (moved to fn since it grew)
 fn insert_units(mut commands: Commands, stats: Res<BodyParts>) {
     let mut team = true;
-    let mut to_spawn = 999;
+    let mut to_spawn = 99;
     let mut seeds = vec![];
     for x in 5..(MAP_SIZE - 5) {
         for y in 5..(MAP_SIZE - 5) {
@@ -201,7 +201,7 @@ fn insert_units(mut commands: Commands, stats: Res<BodyParts>) {
                 false => Team::Baddie,
             };
 
-            let body = {
+            let body: InsectBody = {
                 let src_1 = InsectBody::new(vec![
                     InsectPart::new((0, 0), InsectPartKind(1), PartDirection::Down, &stats),
                     InsectPart::new((0, 1), InsectPartKind(3), PartDirection::Up, &stats),
@@ -220,12 +220,15 @@ fn insert_units(mut commands: Commands, stats: Res<BodyParts>) {
                 ]);
                 let seed = seeds.pop().unwrap_or_else(|| rand::thread_rng().gen());
                 debug!("seed: {}", seed);
-                insect_body::generate_body(
+                match insect_body::generate_body(
                     &[src_1, src_2, src_3],
                     4,
                     &mut StdRng::seed_from_u64(seed),
                     &stats,
-                )
+                ) {
+                    Ok(insect) => insect,
+                    Err(insect) => insect,
+                }
             };
             let move_cap = MoveCap(body.max_move_cap(&stats));
 
