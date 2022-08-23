@@ -187,7 +187,7 @@ pub struct TileSelected(IVec2);
 // Temporary (moved to fn since it grew)
 fn insert_units(mut commands: Commands, stats: Res<BodyParts>) {
     let mut team = true;
-    let mut to_spawn = 99;
+    let mut to_spawn = 4;
     let mut seeds = vec![];
     for x in 5..(MAP_SIZE - 5) {
         for y in 5..(MAP_SIZE - 5) {
@@ -229,7 +229,7 @@ fn insert_units(mut commands: Commands, stats: Res<BodyParts>) {
                 debug!("seed: {}", seed);
                 match insect_body::generate_body(
                     &[src_1, src_2, src_3],
-                    4,
+                    2,
                     &mut StdRng::seed_from_u64(seed),
                     &stats,
                 ) {
@@ -796,8 +796,6 @@ fn attack(
                     if !body.used_tiles.contains(&next_pos) {
                         continue;
                     }
-
-                    // Uncommenting this if block makes some parts disappear unnecessarily :(
 
                     let next_part = body.get_part(next_pos).unwrap();
                     if stats[next_part.kind]

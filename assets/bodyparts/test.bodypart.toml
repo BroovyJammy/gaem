@@ -72,7 +72,7 @@ connections = [[0, -1]]
 [[bodypart]]
 name = "CockroachCore"
 max_health = 7
-move_bonus = 1
+move_bonus = 0
 damage = 0
 base = true
 sprite_idx = 7
