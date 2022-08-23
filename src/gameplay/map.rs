@@ -46,7 +46,7 @@ impl From<Unit> for TileTexture {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Component, Copy, Debug, Eq, PartialEq)]
 pub struct TerrainKind(pub usize);
 
 #[derive(Component)]
@@ -112,8 +112,10 @@ pub fn init_map(mut commands: Commands, assets: Res<MapAssets>, terrain: Res<Ter
         for x in 0..MAP_SIZE {
             for y in 0..MAP_SIZE {
                 let tile_pos = UVec2::new(x, y).into();
-
-                let temp = noise.get([x as f64, y as f64]);
+                let terrain_kind = TerrainKind(match noise.get([x as f64, y as f64]) > 0. {
+                    false => 0,
+                    true => 1,
+                });
 
                 let mut tile = commands.spawn_bundle(TileBundle {
                     position: tile_pos,
@@ -123,13 +125,7 @@ pub fn init_map(mut commands: Commands, assets: Res<MapAssets>, terrain: Res<Ter
                         // Movement is like the select layer but green
                         // They should be separate tho, so you can have both tiles at the same spot
                         Layer::Select | Layer::Movement => Select::Inactive.into(),
-                        Layer::Terrain => TileTexture(
-                            terrain[TerrainKind(match temp > 0. {
-                                false => 0,
-                                true => 1,
-                            })]
-                            .sprite_idx as u32,
-                        ),
+                        Layer::Terrain => TileTexture(terrain[terrain_kind].sprite_idx as u32),
                     },
                     color: TileColor(match layer {
                         Layer::Select => Vec3::ONE.extend(SELECT_LAYER_ALPHA).into(),
@@ -150,6 +146,7 @@ pub fn init_map(mut commands: Commands, assets: Res<MapAssets>, terrain: Res<Ter
                         tile.insert(TerrainTile);
                     }
                 }
+                tile.insert(terrain_kind);
 
                 // Ime it's really messy for empty tiles to not have entities
                 tile_storage.set(&tile_pos, Some(tile.id()));

@@ -1,4 +1,4 @@
-use crate::asset::BodyParts;
+use crate::asset::{BodyParts, Terrain};
 use crate::gameplay::insect_body::{InsectPart, InsectPartKind, PartDirection};
 use crate::{gameplay::insect_body::InsectBody, prelude::*};
 use bevy::utils::HashSet;
@@ -12,7 +12,7 @@ use insect_body::{spawn_insect, UpdateBody};
 pub mod map;
 use map::{Layer, LayerToMap, MovementTile, Select, SelectTile, MAP_SIZE, TILE_SIZE};
 
-use self::map::TerrainTile;
+use self::map::{TerrainKind, TerrainTile};
 
 pub struct GameplayPlugin;
 
@@ -250,6 +250,8 @@ fn handle_select_action(
     cursor_pos: Res<CursorTilePos>,
     selected_unit: Option<Res<SelectedUnit>>,
     mut units: Query<(Entity, &mut UnitPos, &InsectBody, &Team, &mut MoveCap)>,
+    tiles: Query<(&TilePos, &TerrainKind)>,
+    terrain: Res<Terrain>,
 ) {
     if !actioners.single().just_pressed(Action::Select) {
         return;
@@ -280,6 +282,8 @@ fn handle_select_action(
             **move_unit_from,
             cursor_pos.pos,
             units.iter().map(|(a, b, c, _, _)| (a, b, c)),
+            &tiles,
+            &terrain,
         ) {
             let (_, mut unit_pos, _, _, mut move_cap) = units.get_mut(selected_unit.unit).unwrap();
             let move_unit_to = cursor_pos.pos - selected_unit.at_local_pos.as_ivec2();
@@ -302,28 +306,39 @@ fn can_move_unit<'a>(
     from: IVec2,
     to: IVec2,
     units: impl IntoIterator<Item = (Entity, &'a UnitPos, &'a InsectBody)>,
+    tiles: impl IntoIterator<Item = (&'a TilePos, &'a TerrainKind)>,
+    terrain: &Terrain,
 ) -> bool {
     let move_delta = (to - grab_point.as_ivec2()) - from;
 
+    let units = units.into_iter().collect::<Vec<_>>();
+    let tiles = tiles
+        .into_iter()
+        .filter_map(|(tile_pos, kind)| {
+            terrain[*kind]
+                .wall
+                .then(|| UVec2::new(tile_pos.x, tile_pos.y).as_ivec2())
+        })
+        .collect::<Vec<_>>();
+
     (move_delta.x.abs() + move_delta.y.abs()) as u32 <= move_cap.0
-        && !units.into_iter().any(|(unit_entity, unit_pos, body)| {
-            if unit_entity == mover {
+        && !mover_body.used_tiles.iter().any(|&(x, y)| {
+            if x as i32 + to.x < grab_point.x as i32 || y as i32 + to.y < grab_point.y as i32 {
                 return false;
             }
 
-            mover_body.used_tiles.iter().any(|&(x, y)| {
-                if x as i32 + to.x < grab_point.x as i32 || y as i32 + to.y < grab_point.y as i32 {
-                    return false;
-                }
+            let part_pos = IVec2::new(
+                x as i32 + to.x - grab_point.x as i32,
+                y as i32 + to.y - grab_point.y as i32,
+            );
 
-                body.contains_tile(
-                    *unit_pos,
-                    IVec2::new(
-                        x as i32 + to.x - grab_point.x as i32,
-                        y as i32 + to.y - grab_point.y as i32,
-                    ),
-                )
-            })
+            tiles.iter().any(|tile_pos| *tile_pos == part_pos)
+                || units.iter().any(|(unit_entity, unit_pos, body)| {
+                    if *unit_entity == mover {
+                        return false;
+                    }
+                    body.contains_tile(**unit_pos, part_pos)
+                })
         })
 }
 
@@ -331,6 +346,8 @@ fn highlight_movable_tiles(
     units: Query<(Entity, &UnitPos, &InsectBody, &MoveCap)>,
     mut movement_tiles: Query<(&mut TileTexture, &TilePos), With<MovementTile>>,
     selected_unit: Option<Res<SelectedUnit>>,
+    tiles: Query<(&TilePos, &TerrainKind)>,
+    terrain: Res<Terrain>,
 ) {
     let selected_unit = match selected_unit {
         Some(unit) if unit.is_changed() => unit,
@@ -351,6 +368,8 @@ fn highlight_movable_tiles(
             **unit_pos,
             UVec2::as_ivec2(&tile_pos.into()),
             units.iter().map(|(a, b, c, _)| (a, b, c)),
+            &tiles,
+            &terrain,
         ) {
             *texture = Select::Active.into();
         }
@@ -554,6 +573,8 @@ fn move_enemy_unit(
     move_me: Query<Entity, With<MoveMe>>,
     mut units: Query<(Entity, &mut UnitPos, &InsectBody, &MoveCap, &Team)>,
     movement_tiles: Query<&TilePos, With<MovementTile>>,
+    tiles: Query<(&TilePos, &TerrainKind)>,
+    terrain: Res<Terrain>,
     stats: Res<BodyParts>,
 ) {
     if let Some((unit, unit_pos, body, move_cap, _)) =
@@ -616,6 +637,8 @@ fn move_enemy_unit(
                 nearby_units
                     .iter()
                     .map(|unit| units.get(*unit).map(|(a, b, c, _, _)| (a, b, c)).unwrap()),
+                &tiles,
+                &terrain,
             ) {
                 continue;
             }
