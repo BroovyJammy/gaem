@@ -1,4 +1,7 @@
-use crate::asset::MapAssets;
+use noise::{Add, Constant, Fbm, NoiseFn, Power, Seedable};
+use rand::Rng;
+
+use crate::asset::{MapAssets, Terrain};
 use crate::prelude::*;
 
 #[derive(Hash, Eq, Clone, Component, Copy, PartialEq)]
@@ -43,20 +46,11 @@ impl From<Unit> for TileTexture {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct TerrainKind(pub usize);
+
 #[derive(Component)]
 pub struct TerrainTile;
-
-// See `image/tile/terrain.png`
-pub enum Terrain {
-    Dirt,
-    Grass,
-}
-
-impl From<Terrain> for TileTexture {
-    fn from(terrain: Terrain) -> Self {
-        Self(terrain as u32)
-    }
-}
 
 // In tiles
 pub const MAP_SIZE: u32 = 64;
@@ -70,7 +64,7 @@ const TERRAIN_LAYER_Z: f32 = 0.;
 const SELECT_LAYER_ALPHA: f32 = 0.025;
 
 // Based on https://github.com/StarArawn/bevy_ecs_tilemap/blob/main/examples/basic.rs
-pub fn init_map(mut commands: Commands, assets: Res<MapAssets>) {
+pub fn init_map(mut commands: Commands, assets: Res<MapAssets>, terrain: Res<Terrain>) {
     // Some common data between the layers
     let map_size = UVec2::splat(MAP_SIZE).into();
     let tile_size = Vec2::splat(TILE_SIZE as f32);
@@ -84,6 +78,31 @@ pub fn init_map(mut commands: Commands, assets: Res<MapAssets>) {
         y: tile_size.y,
     };
 
+    struct EdgeWall;
+
+    impl NoiseFn<[f64; 2]> for EdgeWall {
+        fn get(&self, mut point: [f64; 2]) -> f64 {
+            for dim in &mut point {
+                if *dim > (MAP_SIZE / 2) as f64 {
+                    *dim = MAP_SIZE as f64 - *dim;
+                }
+            }
+
+            (1. - (point[0].min(point[1]) / (MAP_SIZE / 2) as f64)) * 1.1
+        }
+    }
+
+    let mut fbm = Fbm::new();
+    fbm.frequency = 0.1;
+    let fbm: &dyn NoiseFn<[f64; 2]> = &fbm.set_seed(rand::thread_rng().gen());
+    let constant = Constant::new(-0.3);
+    let add = Add::new(fbm, &constant);
+
+    let constant = Constant::new(8.);
+    let power = Power::new(&EdgeWall, &constant);
+
+    let noise = Add::new(&add, &power);
+
     let mut layer_to_map = LayerToMap(HashMap::new());
     for layer in [Layer::Select, Layer::Movement, Layer::Terrain] {
         let map = commands.spawn().id();
@@ -94,6 +113,8 @@ pub fn init_map(mut commands: Commands, assets: Res<MapAssets>) {
             for y in 0..MAP_SIZE {
                 let tile_pos = UVec2::new(x, y).into();
 
+                let temp = noise.get([x as f64, y as f64]);
+
                 let mut tile = commands.spawn_bundle(TileBundle {
                     position: tile_pos,
                     tilemap_id: TilemapId(map),
@@ -102,7 +123,13 @@ pub fn init_map(mut commands: Commands, assets: Res<MapAssets>) {
                         // Movement is like the select layer but green
                         // They should be separate tho, so you can have both tiles at the same spot
                         Layer::Select | Layer::Movement => Select::Inactive.into(),
-                        Layer::Terrain => Terrain::Dirt.into(),
+                        Layer::Terrain => TileTexture(
+                            terrain[TerrainKind(match temp > 0. {
+                                false => 0,
+                                true => 1,
+                            })]
+                            .sprite_idx as u32,
+                        ),
                     },
                     color: TileColor(match layer {
                         Layer::Select => Vec3::ONE.extend(SELECT_LAYER_ALPHA).into(),

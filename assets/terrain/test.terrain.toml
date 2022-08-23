@@ -1,0 +1,9 @@
+[[terrain]]
+name = "SandGround"
+sprite_idx = 0
+wall = false
+
+[[terrain]]
+name = "CaveWall"
+sprite_idx = 1
+wall = true
