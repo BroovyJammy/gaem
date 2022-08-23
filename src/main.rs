@@ -35,6 +35,8 @@ pub enum AppState {
     AssetsLoading,
     MainMenu,
     Game,
+    EditorCutscene,
+    EditorLevelMap,
 }
 
 fn main() {
