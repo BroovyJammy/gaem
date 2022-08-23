@@ -298,59 +298,75 @@ pub fn merge_insect_bodies(
     let dir = PartDirection::from_u8(rng.gen_range(0..4));
     let b = b.make_new_rotated(dir);
 
-    let filter = |body: &InsectBody, part: &&InsectPart, stats: &BodyParts| {
-        stats[part.kind]
-            .connections
-            .iter()
-            .map(|&c| UVec2::from(part.position).as_ivec2() + part.rotation.rotate_ivec(c))
-            .any(|adjacent| {
-                if adjacent.x < 0 || adjacent.y < 0 {
-                    return true;
-                }
-                !body
-                    .used_tiles
-                    .contains(&(adjacent.x as u32, adjacent.y as u32))
-            })
-    };
-
-    // not a closure because `|a: &u32| -> &u32 { a }` doesnt compile and there is no way to annotate the fn sig
-    // without either `for<'a> |a: &'a u32| -> &'a u32` syntax, or `let a: impl Fn(&u32) -> &u32` syntax.
-    fn pick_edge_flesh<'a>(
-        filter: impl Fn(&InsectBody, &&InsectPart) -> bool,
+    fn open_connections<'a>(
         body: &'a InsectBody,
-        rng: &mut StdRng,
-    ) -> &'a InsectPart {
-        // ) -> Option<&'a InsectPart> {
-        let hard_insect_parts = body.parts.iter().filter(|part| filter(body, part)).count();
-        assert!(hard_insect_parts > 0);
-        // if hard_insect_parts == 0 {
-        //     return None;
-        // };
-        body.parts
-            .iter()
-            .filter(|part| filter(body, part))
-            .nth(rng.gen_range(0..hard_insect_parts))
-            .unwrap()
+        part: &'a InsectPart,
+        stats: &'a BodyParts,
+    ) -> impl Iterator<Item = IVec2> + 'a {
+        stats[part.kind].connections.iter().flat_map(move |&c| {
+            let c = part.rotation.rotate_ivec(c);
+            let adjacent = UVec2::from(part.position).as_ivec2() + part.rotation.rotate_ivec(c);
+            if adjacent.x < 0 || adjacent.y < 0 {
+                return Some(c);
+            }
+            match body
+                .used_tiles
+                .contains(&(adjacent.x as u32, adjacent.y as u32))
+            {
+                true => None,
+                false => Some(c),
+            }
+        })
     }
 
-    let a_flesh = pick_edge_flesh(|a, b| filter(a, b, stats), a, rng);
-    // if let None = a_flesh {
-    //     return a.clone();
-    // }
-    // let a_flesh = a_flesh.unwrap();
-    let b_flesh = pick_edge_flesh(|a, b| filter(a, b, stats), &b, rng);
-    // if let None = b_flesh {
-    //     return b;
-    // }
-    // let b_flesh = b_flesh.unwrap();
+    let a_connections_for_pos = a
+        .parts
+        .iter()
+        .map(move |part| {
+            (
+                IVec2::new(part.position.0 as i32, part.position.1 as i32),
+                open_connections(a, &part, stats).collect::<Vec<_>>(),
+            )
+        })
+        .collect::<HashMap<_, _>>();
+
+    let mut b_pos_for_connection = HashMap::<IVec2, Vec<IVec2>>::new();
+    for part in b.parts.iter() {
+        for connection in open_connections(&b, &part, stats) {
+            b_pos_for_connection
+                .entry(connection)
+                .or_insert(Vec::new())
+                .push(IVec2::new(part.position.0 as i32, part.position.1 as i32));
+        }
+    }
+
+    let possible_joins = a_connections_for_pos
+        .iter()
+        .flat_map(|(&pos, connections)| {
+            let b_pos_for_connection = &b_pos_for_connection;
+            connections.iter().flat_map(move |&connection| {
+                b_pos_for_connection
+                    .get(&-connection)
+                    .map_or([].iter(), |stuff| stuff.iter())
+                    .map(move |&b_position| (pos, connection, b_position))
+            })
+        })
+        .collect::<Vec<_>>();
+    if let None = possible_joins.first() {
+        todo!()
+    }
+
+    let (a_pos, join_dir, b_pos) = possible_joins[rng.gen_range(0..possible_joins.len())];
+    let b_pos_in_a_space = a_pos + join_dir;
+    let b_space_to_a_space = b_pos_in_a_space - b_pos;
 
     let mut pad_x_start = 0;
     let mut pad_y_start = 0;
-    if b_flesh.position.0 > a_flesh.position.0 {
-        pad_x_start = b_flesh.position.0 - a_flesh.position.0;
+    if b_pos_in_a_space.x < b_pos.x {
+        pad_x_start = (b_pos.x - b_pos_in_a_space.x) as u32;
     }
-    if b_flesh.position.1 > a_flesh.position.1 {
-        pad_y_start = b_flesh.position.1 - a_flesh.position.1;
+    if b_pos_in_a_space.y < b_pos.y {
+        pad_y_start = (b_pos.y - b_pos_in_a_space.y) as u32;
     }
 
     let mut wip_insect_parts = Vec::<InsectPart>::new();
@@ -362,9 +378,10 @@ pub fn merge_insect_bodies(
     }
 
     for part in b.parts.iter() {
-        let offset_x = (a_flesh.position.0 + pad_x_start) - b_flesh.position.0;
-        let offset_y = (a_flesh.position.1 + pad_y_start) - b_flesh.position.1;
-        let new_pos = (part.position.0 + offset_x, part.position.1 + offset_y);
+        let new_pos = (
+            (part.position.0 as i32 + b_space_to_a_space.x + pad_x_start as i32) as u32,
+            (part.position.1 as i32 + b_space_to_a_space.y + pad_y_start as i32) as u32,
+        );
         if let Some(existing_part) = wip_insect_parts
             .iter_mut()
             .find(|part| part.position == new_pos)

@@ -181,7 +181,7 @@ pub struct TileSelected(IVec2);
 fn insert_units(mut commands: Commands, stats: Res<BodyParts>) {
     let mut team = true;
     let mut to_spawn = 99;
-    let mut seeds = vec![];
+    let mut seeds = vec![/* 4263948614694578648 */];
     for x in 5..(MAP_SIZE - 5) {
         for y in 5..(MAP_SIZE - 5) {
             if y % 10 != 0 {
@@ -219,7 +219,7 @@ fn insert_units(mut commands: Commands, stats: Res<BodyParts>) {
                     InsectPart::new((1, 2), InsectPartKind(4), PartDirection::Right, &stats),
                 ]);
                 let seed = seeds.pop().unwrap_or_else(|| rand::thread_rng().gen());
-                debug!(seed);
+                debug!("seed: {}", seed);
                 insect_body::generate_body(
                     &[src_1, src_2, src_3],
                     4,
