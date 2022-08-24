@@ -89,24 +89,17 @@ impl InsectBody {
     }
 
     pub fn intersects(&self, this_pos: UnitPos, other: &InsectBody, other_pos: UnitPos) -> bool {
-        for this_tile in self.used_tiles.iter() {
+        if other.used_tiles.len() < self.used_tiles.len() {
+            return other.intersects(other_pos, self, this_pos);
+        }
+
+        self.used_tiles.iter().any(|this_tile| {
             let this_tile = IVec2::new(
                 this_tile.0 as i32 + this_pos.0.x,
                 this_tile.1 as i32 + this_pos.0.y,
             );
-            for other_tile in other.used_tiles.iter() {
-                let other_tile = IVec2::new(
-                    other_tile.0 as i32 + other_pos.0.x,
-                    other_tile.1 as i32 + other_pos.0.y,
-                );
-
-                if this_tile == other_tile {
-                    return true;
-                }
-            }
-        }
-
-        false
+            other.contains_tile(other_pos, this_tile)
+        })
     }
 
     /// `tile` is in world space
