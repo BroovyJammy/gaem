@@ -52,8 +52,22 @@ pub struct TerrainKind(pub usize);
 #[derive(Component)]
 pub struct TerrainTile;
 
-// In tiles
-pub const MAP_SIZE: u32 = 64;
+/// Size in tiles
+#[derive(Copy, Clone)]
+pub struct MapSize(u32);
+impl MapSize {
+    pub fn new() -> Self {
+        Self(64)
+    }
+
+    pub fn size(self) -> u32 {
+        self.0
+    }
+}
+pub fn add_self_to_app(app: &mut App) {
+    app.insert_resource(MapSize::new());
+}
+
 // In pixels
 pub const TILE_SIZE: u32 = 32;
 // Characters will be at `1.`
@@ -61,12 +75,17 @@ const SELECT_LAYER_Z: f32 = 2.;
 const MOVEMENT_LAYER_Z: f32 = 1.;
 const TERRAIN_LAYER_Z: f32 = 0.;
 // For some reason, this value has to be smaller than expected
-const SELECT_LAYER_ALPHA: f32 = 0.025;
+const SELECT_LAYER_ALPHA: f32 = 0.4;
 
 // Based on https://github.com/StarArawn/bevy_ecs_tilemap/blob/main/examples/basic.rs
-pub fn init_map(mut commands: Commands, assets: Res<MapAssets>, terrain: Res<Terrain>) {
+pub fn init_map(
+    mut commands: Commands,
+    assets: Res<MapAssets>,
+    terrain: Res<Terrain>,
+    rawr_map_size: Res<MapSize>,
+) {
     // Some common data between the layers
-    let map_size = UVec2::splat(MAP_SIZE).into();
+    let map_size = UVec2::splat(rawr_map_size.0).into();
     let tile_size = Vec2::splat(TILE_SIZE as f32);
     // No `From<Vec2>` T_T
     let grid_size = TilemapGridSize {
@@ -78,17 +97,17 @@ pub fn init_map(mut commands: Commands, assets: Res<MapAssets>, terrain: Res<Ter
         y: tile_size.y,
     };
 
-    struct EdgeWall;
+    struct EdgeWall(MapSize);
 
     impl NoiseFn<[f64; 2]> for EdgeWall {
         fn get(&self, mut point: [f64; 2]) -> f64 {
             for dim in &mut point {
-                if *dim > (MAP_SIZE / 2) as f64 {
-                    *dim = MAP_SIZE as f64 - *dim;
+                if *dim > (self.0.size() / 2) as f64 {
+                    *dim = self.0.size() as f64 - *dim;
                 }
             }
 
-            (1. - (point[0].min(point[1]) / (MAP_SIZE / 2) as f64)) * 1.1
+            (1. - (point[0].min(point[1]) / (self.0.size() / 2) as f64)) * 1.1
         }
     }
 
@@ -99,7 +118,8 @@ pub fn init_map(mut commands: Commands, assets: Res<MapAssets>, terrain: Res<Ter
     let add = Add::new(fbm, &constant);
 
     let constant = Constant::new(8.);
-    let power = Power::new(&EdgeWall, &constant);
+    let stupid_rustc = EdgeWall(*rawr_map_size);
+    let power = Power::new(&stupid_rustc, &constant);
 
     let noise = Add::new(&add, &power);
 
@@ -109,8 +129,8 @@ pub fn init_map(mut commands: Commands, assets: Res<MapAssets>, terrain: Res<Ter
         let mut tile_storage = TileStorage::empty(map_size);
 
         // Can't use `fill_tilemap` bc we use a color (for select transparency)
-        for x in 0..MAP_SIZE {
-            for y in 0..MAP_SIZE {
+        for x in 0..map_size.x {
+            for y in 0..map_size.y {
                 let tile_pos = UVec2::new(x, y).into();
                 let terrain_kind = TerrainKind(match noise.get([x as f64, y as f64]) > 0. {
                     false => 0,
@@ -129,7 +149,7 @@ pub fn init_map(mut commands: Commands, assets: Res<MapAssets>, terrain: Res<Ter
                     },
                     color: TileColor(match layer {
                         Layer::Select => Vec3::ONE.extend(SELECT_LAYER_ALPHA).into(),
-                        Layer::Movement => Color::rgba(0.2, 1., 0.2, SELECT_LAYER_ALPHA),
+                        Layer::Movement => Color::rgba(0.5, 1., 0.5, SELECT_LAYER_ALPHA),
                         _ => Color::WHITE,
                     }),
                     ..default()

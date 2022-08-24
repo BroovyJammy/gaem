@@ -18,10 +18,10 @@ mod prelude {
 }
 
 mod asset;
+mod cutscene;
 mod dating;
 mod gameplay;
 mod ui;
-mod cutscene;
 
 mod scene_export;
 
@@ -29,7 +29,9 @@ use gameplay::{Team, Turn};
 
 use crate::prelude::*;
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Default, Reflect, FromReflect, serde::Deserialize)]
+#[derive(
+    Clone, Copy, Debug, Eq, Hash, PartialEq, Default, Reflect, FromReflect, serde::Deserialize,
+)]
 pub enum AppState {
     Dating,
     #[default]
@@ -91,6 +93,7 @@ fn main() {
     dating::add_self_to_app(&mut app);
     app.add_plugin(cutscene::CutscenePlugin);
     app.add_plugin(scene_export::SceneExportPlugin);
+    gameplay::map::add_self_to_app(&mut app);
 
     // some debug diagnostics stuff
     #[cfg(debug_assertions)]
@@ -136,18 +139,13 @@ fn debug_turn(current: Res<CurrentState<Turn>>) {
 /// Despawn all entities with a specific marker component
 ///
 /// Useful when exiting states
-pub fn despawn_with<T: Component>(
-    mut cmd: Commands,
-    q: Query<Entity, With<T>>,
-) {
+pub fn despawn_with<T: Component>(mut cmd: Commands, q: Query<Entity, With<T>>) {
     for e in q.iter() {
         cmd.entity(e).despawn_recursive();
     }
 }
 
 /// Remove a resource using Commands
-pub fn remove_resource<T: Send + Sync + 'static>(
-    mut cmd: Commands,
-) {
+pub fn remove_resource<T: Send + Sync + 'static>(mut cmd: Commands) {
     cmd.remove_resource::<T>();
 }

@@ -11,9 +11,11 @@ use rand::{Rng, SeedableRng};
 pub mod insect_body;
 use insect_body::{spawn_insect, UpdateBody};
 pub mod map;
-use map::{Layer, LayerToMap, MovementTile, Select, SelectTile, MAP_SIZE, TILE_SIZE};
-
-use self::map::{TerrainKind, TerrainTile};
+use map::{
+    Layer, LayerToMap, MapSize, MovementTile, Select, SelectTile, TerrainKind, TerrainTile,
+    TILE_SIZE,
+};
+pub mod pathy;
 
 pub struct GameplayPlugin;
 
@@ -191,6 +193,7 @@ pub struct TerrainInfo<'w, 's> {
     pub tilestorages: Query<'w, 's, &'static TileStorage>,
     pub layer_to_map: Res<'w, LayerToMap>,
     pub terrain: Res<'w, Terrain>,
+    pub map_size: Res<'w, MapSize>,
 }
 
 impl TerrainInfo<'_, '_> {
@@ -202,14 +205,13 @@ impl TerrainInfo<'_, '_> {
 
     pub fn get_terrain_descriptor<'a>(
         &'a self,
-        map_size: u32,
         terrain_map: &'a TileStorage,
-    ) -> impl Fn(UnitPos) -> Option<(TerrainKind, &'a TerrainDescriptor)> + 'a {
+    ) -> impl Fn(UnitPos) -> Option<(TerrainKind, &'a TerrainDescriptor)> + Copy + 'a {
         move |pos| {
             if pos.0.x < 0
-                || pos.0.x >= map_size as i32
+                || pos.0.x >= self.map_size.size() as i32
                 || pos.0.y < 0
-                || pos.0.y >= map_size as i32
+                || pos.0.y >= self.map_size.size() as i32
             {
                 return None;
             }
@@ -223,12 +225,12 @@ impl TerrainInfo<'_, '_> {
 }
 
 // Temporary (moved to fn since it grew)
-fn insert_units(mut commands: Commands, stats: Res<BodyParts>) {
+fn insert_units(mut commands: Commands, stats: Res<BodyParts>, map_size: Res<MapSize>) {
     let mut team = true;
     let mut to_spawn = 99;
     let mut seeds = vec![];
-    for x in 5..(MAP_SIZE - 5) {
-        for y in 5..(MAP_SIZE - 5) {
+    for x in 5..(map_size.size() - 5) {
+        for y in 5..(map_size.size() - 5) {
             if y % 10 != 0 {
                 continue;
             }
@@ -316,60 +318,31 @@ fn handle_select_action(
     }
 
     if let Some(selected_unit) = selected_unit {
-        let terrain_map = terrain_info.get_terrain_map();
         let (_, move_unit_from, selected_body, _, move_cap) =
             units.get(selected_unit.unit).unwrap();
-        if can_move_unit(
-            selected_unit.unit,
-            *move_cap,
-            selected_body,
-            move_unit_from.0,
-            cursor_pos.pos - selected_unit.at_local_pos.as_ivec2(),
-            units.iter().map(|(a, b, c, _, _)| (a, b, c)),
-            terrain_info.get_terrain_descriptor(MAP_SIZE, terrain_map),
-        ) {
-            let (_, mut unit_pos, _, _, mut move_cap) = units.get_mut(selected_unit.unit).unwrap();
-            let move_unit_to = cursor_pos.pos - selected_unit.at_local_pos.as_ivec2();
 
+        let moveable_to_tiles = pathy::get_movable_to_tiles(
+            selected_unit.unit,
+            move_unit_from.0,
+            selected_body,
+            *move_cap,
+            || units.iter().map(|(a, b, c, _, _)| (a, b, c)),
+            &terrain_info,
+        );
+
+        let (_, mut unit_pos, _, _, mut move_cap) = units.get_mut(selected_unit.unit).unwrap();
+        let move_unit_to = cursor_pos.pos - selected_unit.at_local_pos.as_ivec2();
+
+        if move_unit_to.x >= 0
+            && move_unit_to.y >= 0
+            && moveable_to_tiles.contains(&move_unit_to.as_uvec2())
+        {
             let move_delta = unit_pos.0 - move_unit_to;
             move_cap.0 -= (move_delta.x.abs() + move_delta.y.abs()) as u32;
-
             unit_pos.0 = move_unit_to;
-
             commands.remove_resource::<SelectedUnit>();
         }
     }
-}
-
-fn can_move_unit<'a>(
-    mover: Entity,
-    move_cap: MoveCap,
-    mover_body: &InsectBody,
-    from: IVec2,
-    to: IVec2,
-    units: impl IntoIterator<Item = (Entity, &'a UnitPos, &'a InsectBody)>,
-    terrain_info: impl Fn(UnitPos) -> Option<(TerrainKind, &'a TerrainDescriptor)> + 'a,
-) -> bool {
-    let move_delta = to - from;
-    let within_movecap = (move_delta.x.abs() + move_delta.y.abs()) as u32 <= move_cap.0;
-    let overlaps_terrain = mover_body
-        .used_tiles
-        .iter()
-        .map(|&(local_tile_pos_x, local_tile_pos_y)| {
-            UnitPos(IVec2::new(
-                local_tile_pos_x as i32 + to.x,
-                local_tile_pos_y as i32 + to.y,
-            ))
-        })
-        .any(|used_tile| {
-            let info = terrain_info(used_tile);
-            info.is_none() || info.unwrap().1.wall
-        });
-    let overlaps_units = units
-        .into_iter()
-        .filter(|&(e, _, _)| e != mover)
-        .any(|(_, pos, body)| body.intersects(*pos, mover_body, UnitPos(to)));
-    (!overlaps_terrain) && (!overlaps_units) && within_movecap
 }
 
 fn highlight_movable_tiles(
@@ -387,20 +360,27 @@ fn highlight_movable_tiles(
         *texture = Select::Inactive.into();
     }
 
-    let terrain_map = terrain_info.get_terrain_map();
     let (_, unit_pos, body, move_cap) = units.get(selected_unit.unit).unwrap();
-    for (mut texture, tile_pos) in &mut movement_tiles {
-        if can_move_unit(
-            selected_unit.unit,
-            *move_cap,
-            body,
-            **unit_pos,
-            UVec2::as_ivec2(&tile_pos.into()) - selected_unit.at_local_pos.as_ivec2(),
-            units.iter().map(|(a, b, c, _)| (a, b, c)),
-            terrain_info.get_terrain_descriptor(MAP_SIZE, terrain_map),
-        ) {
-            *texture = Select::Active.into();
-        }
+    let moveable_to_tiles = pathy::get_movable_to_tiles(
+        selected_unit.unit,
+        unit_pos.0,
+        body,
+        *move_cap,
+        || units.iter().map(|(a, b, c, _)| (a, b, c)),
+        &terrain_info,
+    );
+    for &tile in moveable_to_tiles.iter() {
+        let movement_tile_storage = terrain_info
+            .tilestorages
+            .get(terrain_info.layer_to_map[&Layer::Movement])
+            .unwrap();
+        let tile = movement_tile_storage
+            .get(&TilePos::new(
+                tile.x + selected_unit.at_local_pos.x,
+                tile.y + selected_unit.at_local_pos.y,
+            ))
+            .unwrap();
+        *movement_tiles.get_mut(tile).unwrap().0 = Select::Active.into();
     }
 }
 
@@ -604,8 +584,6 @@ fn move_enemy_unit(
     terrain_info: TerrainInfo<'_, '_>,
     stats: Res<BodyParts>,
 ) {
-    let terrain_map = terrain_info.get_terrain_map();
-
     if let Some((unit, unit_pos, body, move_cap, _)) =
         move_me.iter().next().map(|unit| units.get(unit).unwrap())
     {
@@ -655,21 +633,19 @@ fn move_enemy_unit(
             })
             .collect::<Vec<_>>();
 
-        for tile_pos in &movement_tiles {
-            if !can_move_unit(
-                unit,
-                *move_cap,
-                body,
-                **unit_pos,
-                UVec2::new(tile_pos.x, tile_pos.y).as_ivec2(),
+        let moveable_to_tiles = pathy::get_movable_to_tiles(
+            unit,
+            unit_pos.0,
+            body,
+            *move_cap,
+            || {
                 nearby_units
                     .iter()
-                    .map(|unit| units.get(*unit).map(|(a, b, c, _, _)| (a, b, c)).unwrap()),
-                terrain_info.get_terrain_descriptor(MAP_SIZE, terrain_map),
-            ) {
-                continue;
-            }
-
+                    .map(|unit| units.get(*unit).map(|(a, b, c, _, _)| (a, b, c)).unwrap())
+            },
+            &terrain_info,
+        );
+        for &tile_pos in moveable_to_tiles.iter() {
             let mut score = 0;
             for (other, other_pos, other_body, _, other_team) in
                 nearby_units.iter().map(|unit| units.get(*unit).unwrap())
