@@ -19,7 +19,6 @@ mod prelude {
 
 mod asset;
 mod cutscene;
-mod dating;
 mod gameplay;
 mod ui;
 
@@ -90,7 +89,6 @@ fn main() {
     app.add_plugin(asset::AssetsPlugin);
     app.add_plugin(ui::UiPlugin);
     app.add_plugin(gameplay::GameplayPlugin);
-    dating::add_self_to_app(&mut app);
     app.add_plugin(cutscene::CutscenePlugin);
     app.add_plugin(scene_export::SceneExportPlugin);
     gameplay::map::add_self_to_app(&mut app);

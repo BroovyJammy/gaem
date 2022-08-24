@@ -158,7 +158,6 @@ struct MoveMe;
 
 #[derive(Actionlike, PartialEq, Eq, Clone, Copy, Hash, Debug)]
 pub enum Action {
-    StartDating,
     MoveSelection,
     Select,
     EndTurn,
@@ -226,9 +225,16 @@ impl TerrainInfo<'_, '_> {
 
 // Temporary (moved to fn since it grew)
 fn insert_units(mut commands: Commands, stats: Res<BodyParts>, map_size: Res<MapSize>) {
-    let mut team = true;
-    let mut to_spawn = 99;
-    let mut seeds = vec![];
+    let mut team = false;
+    let mut to_spawn = 6;
+    let mut seeds = vec![
+        // 6047867081507468601,
+        // 12271019664952393,
+        // 10008110471549433311,
+        // 8674917015329062650,
+        // 994344906482298040,
+        // 10392307432015055436,
+    ];
     for x in 5..(map_size.size() - 5) {
         for y in 5..(map_size.size() - 5) {
             if y % 10 != 0 {
@@ -435,8 +441,7 @@ pub fn make_action_manager() -> InputManagerBundle<Action> {
             .insert(GamepadButtonType::South, Action::Select)
             .insert(KeyCode::Return, Action::EndTurn)
             .insert(GamepadButtonType::Select, Action::EndTurn)
-            .insert(KeyCode::Back, Action::StartDating)
-            .insert(GamepadButtonType::North, Action::StartDating)
+            .insert(GamepadButtonType::North, Action::EndTurn)
             .build(),
     }
 }
@@ -547,8 +552,8 @@ fn end_turn(mut commands: Commands, actioners: Query<&ActionState<Action>>) {
 
 fn start_dating(
     mut commands: Commands<'_, '_>,
-    actioners: Query<&ActionState<Action>>,
-    units: Query<
+    units: Query<(Entity, &Team)>,
+    to_despawn: Query<
         Entity,
         Or<(
             With<Team>,
@@ -559,9 +564,14 @@ fn start_dating(
         )>,
     >,
 ) {
-    if actioners.single().just_pressed(Action::StartDating) {
+    if units
+        .iter()
+        .filter(|(_, team)| matches!(team, Team::Baddie))
+        .next()
+        .is_none()
+    {
         commands.insert_resource(NextState(AppState::Dating));
-        for e in units.iter() {
+        for e in to_despawn.iter() {
             commands.entity(e).despawn_recursive();
         }
     }
@@ -591,7 +601,7 @@ fn move_enemy_unit(
         movement_tiles.shuffle(&mut rand::thread_rng());
 
         // AI tries to deal the most and take the least damage per turn
-        let mut best_dest = **unit_pos;
+        let mut best_dests = Vec::new();
         let mut best_score = i32::MIN;
 
         let unit_size = UVec2::from(
@@ -632,6 +642,7 @@ fn move_enemy_unit(
                     .then(|| other)
             })
             .collect::<Vec<_>>();
+        debug!("nearby_units: {:?}", &nearby_units);
 
         let moveable_to_tiles = pathy::get_movable_to_tiles(
             unit,
@@ -645,6 +656,7 @@ fn move_enemy_unit(
             },
             &terrain_info,
         );
+        debug!("unit pos: {:?}", unit_pos);
         for &tile_pos in moveable_to_tiles.iter() {
             let mut score = 0;
             for (other, other_pos, other_body, _, other_team) in
@@ -685,13 +697,31 @@ fn move_enemy_unit(
             }
 
             if score > best_score {
-                best_dest = UVec2::new(tile_pos.x, tile_pos.y).as_ivec2();
+                debug!("updated best score from: {} to: {}", best_score, score);
+                best_dests.clear();
                 best_score = score;
             }
+            if score == best_score {
+                best_dests.push(UVec2::new(tile_pos.x, tile_pos.y).as_ivec2());
+            }
         }
+        // debug!("destinations: {:?}", &best_dests);
 
         let (_, mut unit_pos, _, _, _) = units.get_mut(unit).unwrap();
-        **unit_pos = best_dest;
+
+        let pos = if best_dests.len() > 0 {
+            best_dests[rand::thread_rng().gen_range(0..best_dests.len())]
+        } else if moveable_to_tiles.len() > 0 {
+            moveable_to_tiles
+                .iter()
+                .nth(rand::thread_rng().gen_range(0..moveable_to_tiles.len()))
+                .unwrap()
+                .as_ivec2()
+        } else {
+            debug!("no movable to tiles");
+            unit_pos.0
+        };
+        **unit_pos = pos;
         commands.entity(unit).remove::<MoveMe>();
     } else {
         // Everyone has moved
