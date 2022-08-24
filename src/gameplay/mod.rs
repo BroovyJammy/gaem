@@ -1,6 +1,7 @@
-use crate::asset::{BodyParts, Terrain};
+use crate::asset::{BodyParts, Terrain, TerrainDescriptor};
 use crate::gameplay::insect_body::{InsectPart, InsectPartKind, PartDirection};
 use crate::{gameplay::insect_body::InsectBody, prelude::*};
+use bevy::ecs::system::SystemParam;
 use bevy::utils::HashSet;
 use leafwing_input_manager::user_input::InputKind;
 use rand::rngs::StdRng;
@@ -184,10 +185,47 @@ pub struct CursorTilePos {
 #[derive(Deref)]
 pub struct TileSelected(IVec2);
 
+#[derive(SystemParam)]
+pub struct TerrainInfo<'w, 's> {
+    pub tiles: Query<'w, 's, (&'static TilePos, &'static TerrainKind)>,
+    pub tilestorages: Query<'w, 's, &'static TileStorage>,
+    pub layer_to_map: Res<'w, LayerToMap>,
+    pub terrain: Res<'w, Terrain>,
+}
+
+impl TerrainInfo<'_, '_> {
+    pub fn get_terrain_map(&self) -> &TileStorage {
+        self.tilestorages
+            .get(self.layer_to_map[&Layer::Terrain])
+            .unwrap()
+    }
+
+    pub fn get_terrain_descriptor<'a>(
+        &'a self,
+        map_size: u32,
+        terrain_map: &'a TileStorage,
+    ) -> impl Fn(UnitPos) -> Option<(TerrainKind, &'a TerrainDescriptor)> + 'a {
+        move |pos| {
+            if pos.0.x < 0
+                || pos.0.x >= map_size as i32
+                || pos.0.y < 0
+                || pos.0.y >= map_size as i32
+            {
+                return None;
+            }
+            let terrain_entity = terrain_map
+                .get(&TilePos::new(pos.0.x as u32, pos.0.y as u32))
+                .unwrap();
+            let terrain_kind = self.tiles.get(terrain_entity).unwrap().1.clone();
+            Some((terrain_kind, &self.terrain[terrain_kind]))
+        }
+    }
+}
+
 // Temporary (moved to fn since it grew)
 fn insert_units(mut commands: Commands, stats: Res<BodyParts>) {
     let mut team = true;
-    let mut to_spawn = 4;
+    let mut to_spawn = 99;
     let mut seeds = vec![];
     for x in 5..(MAP_SIZE - 5) {
         for y in 5..(MAP_SIZE - 5) {
@@ -257,8 +295,7 @@ fn handle_select_action(
     cursor_pos: Res<CursorTilePos>,
     selected_unit: Option<Res<SelectedUnit>>,
     mut units: Query<(Entity, &mut UnitPos, &InsectBody, &Team, &mut MoveCap)>,
-    tiles: Query<(&TilePos, &TerrainKind)>,
-    terrain: Res<Terrain>,
+    terrain_info: TerrainInfo<'_, '_>,
 ) {
     if !actioners.single().just_pressed(Action::Select) {
         return;
@@ -279,18 +316,17 @@ fn handle_select_action(
     }
 
     if let Some(selected_unit) = selected_unit {
+        let terrain_map = terrain_info.get_terrain_map();
         let (_, move_unit_from, selected_body, _, move_cap) =
             units.get(selected_unit.unit).unwrap();
         if can_move_unit(
             selected_unit.unit,
             *move_cap,
             selected_body,
-            selected_unit.at_local_pos,
-            **move_unit_from,
-            cursor_pos.pos,
+            move_unit_from.0,
+            cursor_pos.pos - selected_unit.at_local_pos.as_ivec2(),
             units.iter().map(|(a, b, c, _, _)| (a, b, c)),
-            &tiles,
-            &terrain,
+            terrain_info.get_terrain_descriptor(MAP_SIZE, terrain_map),
         ) {
             let (_, mut unit_pos, _, _, mut move_cap) = units.get_mut(selected_unit.unit).unwrap();
             let move_unit_to = cursor_pos.pos - selected_unit.at_local_pos.as_ivec2();
@@ -309,52 +345,38 @@ fn can_move_unit<'a>(
     mover: Entity,
     move_cap: MoveCap,
     mover_body: &InsectBody,
-    grab_point: UVec2,
     from: IVec2,
     to: IVec2,
     units: impl IntoIterator<Item = (Entity, &'a UnitPos, &'a InsectBody)>,
-    tiles: impl IntoIterator<Item = (&'a TilePos, &'a TerrainKind)>,
-    terrain: &Terrain,
+    terrain_info: impl Fn(UnitPos) -> Option<(TerrainKind, &'a TerrainDescriptor)> + 'a,
 ) -> bool {
-    let move_delta = (to - grab_point.as_ivec2()) - from;
-
-    let units = units.into_iter().collect::<Vec<_>>();
-    let tiles = tiles
+    let move_delta = to - from;
+    let within_movecap = (move_delta.x.abs() + move_delta.y.abs()) as u32 <= move_cap.0;
+    let overlaps_terrain = mover_body
+        .used_tiles
+        .iter()
+        .map(|&(local_tile_pos_x, local_tile_pos_y)| {
+            UnitPos(IVec2::new(
+                local_tile_pos_x as i32 + to.x,
+                local_tile_pos_y as i32 + to.y,
+            ))
+        })
+        .any(|used_tile| {
+            let info = terrain_info(used_tile);
+            info.is_none() || info.unwrap().1.wall
+        });
+    let overlaps_units = units
         .into_iter()
-        .filter_map(|(tile_pos, kind)| {
-            terrain[*kind]
-                .wall
-                .then(|| UVec2::new(tile_pos.x, tile_pos.y).as_ivec2())
-        })
-        .collect::<Vec<_>>();
-
-    (move_delta.x.abs() + move_delta.y.abs()) as u32 <= move_cap.0
-        && !mover_body.used_tiles.iter().any(|&(x, y)| {
-            if x as i32 + to.x < grab_point.x as i32 || y as i32 + to.y < grab_point.y as i32 {
-                return false;
-            }
-
-            let part_pos = IVec2::new(
-                x as i32 + to.x - grab_point.x as i32,
-                y as i32 + to.y - grab_point.y as i32,
-            );
-
-            tiles.iter().any(|tile_pos| *tile_pos == part_pos)
-                || units.iter().any(|(unit_entity, unit_pos, body)| {
-                    if *unit_entity == mover {
-                        return false;
-                    }
-                    body.contains_tile(**unit_pos, part_pos)
-                })
-        })
+        .filter(|&(e, _, _)| e != mover)
+        .any(|(_, pos, body)| body.intersects(*pos, mover_body, UnitPos(to)));
+    (!overlaps_terrain) && (!overlaps_units) && within_movecap
 }
 
 fn highlight_movable_tiles(
     units: Query<(Entity, &UnitPos, &InsectBody, &MoveCap)>,
     mut movement_tiles: Query<(&mut TileTexture, &TilePos), With<MovementTile>>,
     selected_unit: Option<Res<SelectedUnit>>,
-    tiles: Query<(&TilePos, &TerrainKind)>,
-    terrain: Res<Terrain>,
+    terrain_info: TerrainInfo<'_, '_>,
 ) {
     let selected_unit = match selected_unit {
         Some(unit) if unit.is_changed() => unit,
@@ -365,18 +387,17 @@ fn highlight_movable_tiles(
         *texture = Select::Inactive.into();
     }
 
+    let terrain_map = terrain_info.get_terrain_map();
     let (_, unit_pos, body, move_cap) = units.get(selected_unit.unit).unwrap();
     for (mut texture, tile_pos) in &mut movement_tiles {
         if can_move_unit(
             selected_unit.unit,
             *move_cap,
             body,
-            selected_unit.at_local_pos,
             **unit_pos,
-            UVec2::as_ivec2(&tile_pos.into()),
+            UVec2::as_ivec2(&tile_pos.into()) - selected_unit.at_local_pos.as_ivec2(),
             units.iter().map(|(a, b, c, _)| (a, b, c)),
-            &tiles,
-            &terrain,
+            terrain_info.get_terrain_descriptor(MAP_SIZE, terrain_map),
         ) {
             *texture = Select::Active.into();
         }
@@ -580,10 +601,11 @@ fn move_enemy_unit(
     move_me: Query<Entity, With<MoveMe>>,
     mut units: Query<(Entity, &mut UnitPos, &InsectBody, &MoveCap, &Team)>,
     movement_tiles: Query<&TilePos, With<MovementTile>>,
-    tiles: Query<(&TilePos, &TerrainKind)>,
-    terrain: Res<Terrain>,
+    terrain_info: TerrainInfo<'_, '_>,
     stats: Res<BodyParts>,
 ) {
+    let terrain_map = terrain_info.get_terrain_map();
+
     if let Some((unit, unit_pos, body, move_cap, _)) =
         move_me.iter().next().map(|unit| units.get(unit).unwrap())
     {
@@ -638,14 +660,12 @@ fn move_enemy_unit(
                 unit,
                 *move_cap,
                 body,
-                UVec2::ZERO,
                 **unit_pos,
                 UVec2::new(tile_pos.x, tile_pos.y).as_ivec2(),
                 nearby_units
                     .iter()
                     .map(|unit| units.get(*unit).map(|(a, b, c, _, _)| (a, b, c)).unwrap()),
-                &tiles,
-                &terrain,
+                terrain_info.get_terrain_descriptor(MAP_SIZE, terrain_map),
             ) {
                 continue;
             }
