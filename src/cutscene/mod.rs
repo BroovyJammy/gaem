@@ -111,6 +111,7 @@ fn init_cutscene(
     let mut camera_trans = camera.single_mut();
     camera_trans.translation.x = 0.;
     camera_trans.translation.y = 0.;
+    camera_trans.translation.z = 800.;
 
     current.handle = Some(find_cutscene_by_title(
         &*collection,

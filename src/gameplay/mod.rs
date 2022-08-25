@@ -1,8 +1,8 @@
 use std::marker::PhantomData;
 
 use crate::asset::{BodyParts, Terrain, TerrainDescriptor};
-use crate::cutscene::CurrentCutscene;
 use crate::gameplay::insect_body::{InsectPart, InsectPartKind, PartDirection};
+use crate::gameplay::insect_combiner::{LevelGameplayInfo, UnitToCombine};
 use crate::{gameplay::insect_body::InsectBody, prelude::*};
 use bevy::ecs::system::SystemParam;
 use bevy::utils::{HashSet, StableHashMap};
@@ -19,6 +19,8 @@ use map::{
 
 use self::insect_body::InsectRenderEntities;
 pub mod pathy;
+
+pub mod insect_combiner;
 
 pub struct CurrentUnits(Vec<InsectBody>);
 
@@ -169,6 +171,23 @@ impl Plugin for GameplayPlugin {
                     .run_in_state(Turn::goodie()),
             )
             .add_exit_system(AppState::Game, cleanup_stuff);
+
+        app.insert_resource(LevelGameplayInfo::new());
+        app.insert_resource(UnitToCombine(0));
+        app.add_enter_system(
+            AppState::InsectCombiner,
+            insect_combiner::setup_insect_combiner,
+        )
+        .add_system(insect_combiner::change_selected_unit.run_in_state(AppState::InsectCombiner))
+        .add_system(
+            insect_combiner::update_to_combine_unit_visuals.run_in_state(AppState::InsectCombiner),
+        )
+        .add_system(insect_combiner::confirm_combine_unit.run_in_state(AppState::InsectCombiner))
+        .add_system(insect_body::update_insect_body_tilemap.run_in_state(AppState::InsectCombiner))
+        .add_exit_system(
+            AppState::InsectCombiner,
+            insect_combiner::cleanup_insect_combiner,
+        );
     }
 }
 
@@ -317,39 +336,58 @@ fn insert_units(
     stats: Res<BodyParts>,
     level_info: LevelInfo<'_, '_>,
     player_units: Option<Res<CurrentUnits>>,
+    mut level_gameplay_info: ResMut<LevelGameplayInfo>,
 ) {
     let mut seeds = vec![];
     let (src_1, src_2, src_3) = body_sources(&stats);
 
     let player_units = match player_units {
         None => {
-            let seed = seeds.pop().unwrap_or_else(|| rand::thread_rng().gen());
-            debug!("seed: {}", seed);
-            let (Ok(body) | Err(body)) = insect_body::generate_body(
-                &[src_1.clone(), src_2.clone(), src_3.clone()],
-                2,
-                &mut StdRng::seed_from_u64(seed),
-                &stats,
-            );
-            commands.insert_resource(CurrentUnits(vec![body.clone()]));
-            CurrentUnits(vec![body])
+            let player_units = (0..1)
+                .map(|_| {
+                    let seed = seeds.pop().unwrap_or_else(|| rand::thread_rng().gen());
+                    debug!("seed: {}", seed);
+                    let (Ok(body) | Err(body)) = insect_body::generate_body(
+                        &[src_1.clone(), src_2.clone(), src_3.clone()],
+                        2,
+                        &mut StdRng::seed_from_u64(seed),
+                        &stats,
+                    );
+                    body
+                })
+                .collect::<Vec<_>>();
+            commands.insert_resource(CurrentUnits(player_units.clone()));
+            CurrentUnits(player_units)
         }
         Some(current_units) => CurrentUnits(current_units.0.clone()),
     };
 
     let level = level_info.level();
-    for (pos, generation) in level.enemy_spawn_points.iter().copied() {
-        let seed = seeds.pop().unwrap_or_else(|| rand::thread_rng().gen());
-        debug!("seed: {}", seed);
-        let (Ok(body) | Err(body)) = insect_body::generate_body(
-            &[src_1.clone(), src_2.clone(), src_3.clone()],
-            generation,
-            &mut StdRng::seed_from_u64(seed),
-            &stats,
-        );
-        let move_cap = MoveCap(body.max_move_cap(&stats));
-        spawn_insect(&mut commands, pos.as_ivec2(), body, Team::Baddie, move_cap);
-    }
+    let generated_enemies = level
+        .enemy_spawn_points
+        .iter()
+        .map(|&(pos, generation)| {
+            let seed = seeds.pop().unwrap_or_else(|| rand::thread_rng().gen());
+            debug!("seed: {}", seed);
+            let (Ok(body) | Err(body)) = insect_body::generate_body(
+                &[src_1.clone(), src_2.clone(), src_3.clone()],
+                generation,
+                &mut StdRng::seed_from_u64(seed),
+                &stats,
+            );
+            let move_cap = MoveCap(body.max_move_cap(&stats));
+            let insect_id = spawn_insect(
+                &mut commands,
+                pos.as_ivec2(),
+                body.clone(),
+                Team::Baddie,
+                move_cap,
+            );
+            (insect_id, body)
+        })
+        .collect::<Vec<_>>();
+    level_gameplay_info.clear();
+    level_gameplay_info.set_generated_enemies(generated_enemies);
 
     assert!(level.player_spawn_points.len() >= player_units.0.len());
     for (pos, body) in level
@@ -716,22 +754,16 @@ fn cleanup_stuff(
 fn lose_win_conditions(
     mut commands: Commands<'_, '_>,
     units: Query<(Entity, &Team)>,
-    levels: Res<Levels>,
     mut current_level: ResMut<CurrentLevel>,
 ) {
     if !units.iter().any(|(_, team)| matches!(team, Team::Baddie)) {
-        let level = &levels[current_level.0];
-        if let Some(cutscene) = &level.post_cutscene {
-            commands.insert_resource(CurrentCutscene::new(cutscene));
-            commands.insert_resource(NextState(AppState::PlayCutscene));
-            current_level.0 += 1;
-        } else {
-            debug!("finished level but there was no cutscene to move to");
-        }
+        commands.insert_resource(UnitToCombine(0));
+        commands.insert_resource(NextState(AppState::InsectCombiner));
     }
 
     if !units.iter().any(|(_, team)| matches!(team, Team::Goodie)) {
         *current_level = CurrentLevel(0);
+        commands.insert_resource(UnitToCombine(0));
         commands.remove_resource::<CurrentUnits>();
         commands.insert_resource(NextState(AppState::MainMenu));
     }
@@ -905,8 +937,13 @@ fn move_enemy_unit(
 
 fn attack(
     attacking_team: Team,
-) -> impl Fn(Commands, Query<(Entity, &UnitPos, &mut InsectBody, &Team)>, Res<BodyParts>) {
-    move |mut commands, mut units, stats| {
+) -> impl Fn(
+    Commands,
+    Query<(Entity, &UnitPos, &mut InsectBody, &Team)>,
+    Res<BodyParts>,
+    ResMut<LevelGameplayInfo>,
+) {
+    move |mut commands, mut units, stats, mut level_gameplay_info| {
         let mut attacks = Vec::default();
 
         // avoid using `iter_combinations` because it wont yield both `(enemy, player)` and `(player, enemy)`
@@ -1048,15 +1085,16 @@ fn attack(
                 );
 
                 let move_cap = body.max_move_cap(&stats);
-                spawn_insect(
+                let insect_id = spawn_insect(
                     &mut commands,
                     **body_pos,
                     body,
                     *body_team,
                     MoveCap(move_cap),
                 );
+                level_gameplay_info.insert_insect_split(severee, std::iter::once(insect_id));
             }
-
+            level_gameplay_info.set_last_killed(severee);
             commands.entity(severee).despawn_recursive();
         }
     }

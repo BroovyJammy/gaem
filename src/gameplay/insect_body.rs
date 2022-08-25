@@ -205,7 +205,7 @@ pub fn spawn_insect(
     body: InsectBody,
     team: Team,
     move_cap: MoveCap,
-) {
+) -> Entity {
     commands
         .spawn()
         .insert_bundle(TransformBundle { ..default() })
@@ -218,7 +218,8 @@ pub fn spawn_insect(
             body_part: StableHashMap::with_hasher(Default::default()),
         })
         .insert(move_cap)
-        .insert_bundle(VisibilityBundle { ..default() });
+        .insert_bundle(VisibilityBundle { ..default() })
+        .id()
 }
 
 pub fn update_insect_body_tilemap(

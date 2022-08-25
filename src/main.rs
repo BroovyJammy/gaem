@@ -36,6 +36,7 @@ pub enum AppState {
     AssetsLoading,
     MainMenu,
     Game,
+    InsectCombiner,
     /// you must insert resource CurrentCutscene to select cutscene to play
     PlayCutscene,
     // dev tools / editors
@@ -109,7 +110,7 @@ fn main() {
             size_x: 32,
             size_y: 32,
             post_cutscene: Some("iyes finds god".into()),
-            player_spawn_points: vec![UVec2::new(5, 5)],
+            player_spawn_points: vec![UVec2::new(5, 5), UVec2::new(15, 15)],
             enemy_spawn_points: vec![(UVec2::new(27, 27), 1)],
         },
         gameplay::Level {
