@@ -226,17 +226,22 @@ pub fn update_insect_body_tilemap(
     mut insects: Query<
         (
             Entity,
-            &InsectBody,
+            AnyOf<(&InsectBody, &Ghost)>,
             &Team,
             &mut InsectRenderEntities,
-            Option<&Ghost>,
         ),
         With<UpdateBody>,
     >,
     assets: Res<MapAssets>,
     stats: Res<BodyParts>,
 ) {
-    for (entity, body, team, mut render_body_parts, ghost) in insects.iter_mut() {
+    for (entity, body, team, mut render_body_parts) in insects.iter_mut() {
+        let (body, is_ghost) = match body {
+            (Some(body), None) => (body, false),
+            (None, Some(body)) => (&body.0, true),
+            _ => unreachable!(),
+        };
+
         for child in render_body_parts.body_part.values() {
             cmds.entity(*child).despawn_recursive();
         }
@@ -250,7 +255,7 @@ pub fn update_insect_body_tilemap(
             .with_children(|child_builder| {
                 for part in body.parts.iter() {
                     let color = team.color();
-                    let color = match ghost.is_some() {
+                    let color = match is_ghost {
                         false => color,
                         true => Vec4::from(color).truncate().extend(0.5).into(),
                     };

@@ -464,7 +464,7 @@ fn highlight_movable_tiles(
 }
 
 #[derive(Component)]
-pub struct Ghost;
+pub struct Ghost(InsectBody);
 
 // A ghost is the unit that shows under your cursor when you have a unit selected
 // 👻
@@ -479,7 +479,6 @@ fn spawn_ghost(
             .spawn()
             .insert_bundle(TransformBundle::default())
             .insert(*pos)
-            .insert(body.clone())
             .insert(UpdateBody)
             .insert(Team::Goodie)
             .insert(InsectRenderEntities {
@@ -487,7 +486,7 @@ fn spawn_ghost(
                 body_part: StableHashMap::with_hasher(default()),
             })
             .insert_bundle(VisibilityBundle::default())
-            .insert(Ghost);
+            .insert(Ghost(body.clone()));
     }
 }
 
