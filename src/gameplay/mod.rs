@@ -8,7 +8,6 @@ use bevy::ecs::system::SystemParam;
 use bevy::utils::HashSet;
 use leafwing_input_manager::user_input::InputKind;
 use rand::rngs::StdRng;
-use rand::seq::SliceRandom;
 use rand::{Rng, SeedableRng};
 
 pub mod insect_body;
@@ -18,6 +17,8 @@ use map::{
     Layer, LayerToMap, MovementTile, Select, SelectTile, TerrainKind, TerrainTile, TILE_SIZE,
 };
 pub mod pathy;
+
+pub struct CurrentUnits(Vec<InsectBody>);
 
 #[derive(SystemParam)]
 pub struct LevelInfo<'w, 's> {
@@ -45,6 +46,8 @@ pub struct Level {
     pub size_x: u32,
     pub size_y: u32,
     pub post_cutscene: Option<String>,
+    pub player_spawn_points: Vec<UVec2>,
+    pub enemy_spawn_points: Vec<(UVec2, u8)>,
 }
 
 pub struct CurrentLevel(pub usize);
@@ -138,6 +141,26 @@ impl Plugin for GameplayPlugin {
             )
             .add_exit_system(AppState::Game, cleanup_stuff);
     }
+}
+
+fn body_sources(stats: &BodyParts) -> (InsectBody, InsectBody, InsectBody) {
+    let src_1 = InsectBody::new(vec![
+        InsectPart::new((0, 0), InsectPartKind(1), PartDirection::Down, &stats),
+        InsectPart::new((0, 1), InsectPartKind(3), PartDirection::Up, &stats),
+        InsectPart::new((1, 1), InsectPartKind(0), PartDirection::Right, &stats),
+    ]);
+    let src_2 = InsectBody::new(vec![
+        InsectPart::new((0, 0), InsectPartKind(3), PartDirection::Down, &stats),
+        InsectPart::new((0, 1), InsectPartKind(0), PartDirection::Up, &stats),
+        InsectPart::new((1, 1), InsectPartKind(2), PartDirection::Right, &stats),
+    ]);
+    let src_3 = InsectBody::new(vec![
+        InsectPart::new((0, 1), InsectPartKind(5), PartDirection::Left, &stats),
+        InsectPart::new((1, 1), InsectPartKind(7), PartDirection::Up, &stats),
+        InsectPart::new((1, 0), InsectPartKind(6), PartDirection::Down, &stats),
+        InsectPart::new((1, 2), InsectPartKind(4), PartDirection::Right, &stats),
+    ]);
+    (src_1, src_2, src_3)
 }
 
 fn init_global_camera(mut commands: Commands) {
@@ -259,68 +282,54 @@ impl TerrainInfo<'_, '_> {
 }
 
 // Temporary (moved to fn since it grew)
-fn insert_units(mut commands: Commands, stats: Res<BodyParts>, level_info: LevelInfo<'_, '_>) {
-    let mut team = false;
-    let mut to_spawn = 3;
+fn insert_units(
+    mut commands: Commands,
+    stats: Res<BodyParts>,
+    level_info: LevelInfo<'_, '_>,
+    player_units: Option<Res<CurrentUnits>>,
+) {
     let mut seeds = vec![];
-    for x in 5..(level_info.level().size_x - 5) {
-        for y in 5..(level_info.level().size_y - 5) {
-            if y % 10 != 0 {
-                continue;
-            }
-            if x % 10 != 0 {
-                continue;
-            }
-            if to_spawn == 0 {
-                return;
-            }
-            to_spawn -= 1;
+    let (src_1, src_2, src_3) = body_sources(&stats);
 
-            team = !team;
-            let team = match team {
-                true => Team::Goodie,
-                false => Team::Baddie,
-            };
-
-            let body: InsectBody = {
-                let src_1 = InsectBody::new(vec![
-                    InsectPart::new((0, 0), InsectPartKind(1), PartDirection::Down, &stats),
-                    InsectPart::new((0, 1), InsectPartKind(3), PartDirection::Up, &stats),
-                    InsectPart::new((1, 1), InsectPartKind(0), PartDirection::Right, &stats),
-                ]);
-                let src_2 = InsectBody::new(vec![
-                    InsectPart::new((0, 0), InsectPartKind(3), PartDirection::Down, &stats),
-                    InsectPart::new((0, 1), InsectPartKind(0), PartDirection::Up, &stats),
-                    InsectPart::new((1, 1), InsectPartKind(2), PartDirection::Right, &stats),
-                ]);
-                let src_3 = InsectBody::new(vec![
-                    InsectPart::new((0, 1), InsectPartKind(5), PartDirection::Left, &stats),
-                    InsectPart::new((1, 1), InsectPartKind(7), PartDirection::Up, &stats),
-                    InsectPart::new((1, 0), InsectPartKind(6), PartDirection::Down, &stats),
-                    InsectPart::new((1, 2), InsectPartKind(4), PartDirection::Right, &stats),
-                ]);
-                let seed = seeds.pop().unwrap_or_else(|| rand::thread_rng().gen());
-                debug!("seed: {}", seed);
-                match insect_body::generate_body(
-                    &[src_1, src_2, src_3],
-                    2,
-                    &mut StdRng::seed_from_u64(seed),
-                    &stats,
-                ) {
-                    Ok(insect) => insect,
-                    Err(insect) => insect,
-                }
-            };
-            let move_cap = MoveCap(body.max_move_cap(&stats));
-
-            spawn_insect(
-                &mut commands,
-                IVec2::new(x as i32, y as i32),
-                body,
-                team,
-                move_cap,
-            )
+    let player_units = match player_units {
+        None => {
+            let seed = seeds.pop().unwrap_or_else(|| rand::thread_rng().gen());
+            debug!("seed: {}", seed);
+            let (Ok(body) | Err(body)) = insect_body::generate_body(
+                &[src_1.clone(), src_2.clone(), src_3.clone()],
+                2,
+                &mut StdRng::seed_from_u64(seed),
+                &stats,
+            );
+            commands.insert_resource(CurrentUnits(vec![body.clone()]));
+            CurrentUnits(vec![body])
         }
+        Some(current_units) => CurrentUnits(current_units.0.clone()),
+    };
+
+    let level = level_info.level();
+    for (pos, generation) in level.enemy_spawn_points.iter().copied() {
+        let seed = seeds.pop().unwrap_or_else(|| rand::thread_rng().gen());
+        debug!("seed: {}", seed);
+        let (Ok(body) | Err(body)) = insect_body::generate_body(
+            &[src_1.clone(), src_2.clone(), src_3.clone()],
+            generation,
+            &mut StdRng::seed_from_u64(seed),
+            &stats,
+        );
+        let move_cap = MoveCap(body.max_move_cap(&stats));
+        spawn_insect(&mut commands, pos.as_ivec2(), body, Team::Baddie, move_cap);
+    }
+
+    assert!(level.player_spawn_points.len() >= player_units.0.len());
+    for (pos, body) in level
+        .player_spawn_points
+        .iter()
+        .copied()
+        .zip(player_units.0.iter().cloned())
+    {
+        let move_cap = MoveCap(body.max_move_cap(&stats));
+        spawn_insect(&mut commands, pos.as_ivec2(), body, Team::Goodie, move_cap);
     }
 }
 
@@ -625,6 +634,7 @@ fn lose_win_conditions(
         .is_none()
     {
         *current_level = CurrentLevel(0);
+        commands.remove_resource::<CurrentUnits>();
         commands.insert_resource(NextState(AppState::MainMenu));
     }
 }

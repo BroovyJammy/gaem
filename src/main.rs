@@ -109,11 +109,15 @@ fn main() {
             size_x: 32,
             size_y: 32,
             post_cutscene: Some("iyes finds god".into()),
+            player_spawn_points: vec![UVec2::new(5, 5)],
+            enemy_spawn_points: vec![(UVec2::new(27, 27), 1)],
         },
         gameplay::Level {
-            size_x: 64,
-            size_y: 64,
+            size_x: 48,
+            size_y: 48,
             post_cutscene: None,
+            player_spawn_points: vec![UVec2::new(5, 10), UVec2::new(20, 10)],
+            enemy_spawn_points: vec![(UVec2::new(43, 38), 2), (UVec2::new(28, 38), 1)],
         },
     ]));
 
