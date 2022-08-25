@@ -633,12 +633,10 @@ fn move_enemy_unit(
     if let Some((unit, unit_pos, body, move_cap, _)) =
         move_me.iter().next().map(|unit| units.get(unit).unwrap())
     {
-        let mut movement_tiles = movement_tiles.iter().collect::<Vec<_>>();
-        movement_tiles.shuffle(&mut rand::thread_rng());
-
-        // AI tries to deal the most and take the least damage per turn
+        // AI tries to deal the most damage per turn
         let mut best_dests = Vec::new();
         let mut best_score = i32::MIN;
+        let mut best_attacking = false;
 
         let unit_size = UVec2::from(
             body.used_tiles
@@ -695,6 +693,7 @@ fn move_enemy_unit(
         debug!("unit pos: {:?}", unit_pos);
         for &tile_pos in moveable_to_tiles.iter() {
             let mut score = 0;
+            let mut attacking = false;
             for (other, other_pos, other_body, _, other_team) in
                 nearby_units.iter().map(|unit| units.get(*unit).unwrap())
             {
@@ -724,20 +723,36 @@ fn move_enemy_unit(
 
                         if delta.x.abs() + delta.y.abs() == 1 {
                             // Adjacent
+                            attacking |= *other_team == Team::Goodie && stats[part.kind].damage > 0;
                             score += stats[part.kind].damage as i32
-                                * ((*other_team == Team::Goodie) as i32 * 2 - 1)
+                                * ((*other_team == Team::Goodie) as i32 * 3 - 1)
                                 - stats[other_part.kind].damage as i32;
                         }
                     }
                 }
             }
 
-            if score > best_score {
-                debug!("updated best score from: {} to: {}", best_score, score);
+            // Either have to have a better score, or find a place where they can attack
+            if (score > best_score && attacking == best_attacking) || (attacking && !best_attacking)
+            {
+                debug!(
+                    "updated best score from: {} {} to: {} {}",
+                    best_score,
+                    match best_attacking {
+                        false => "not attacking",
+                        true => "attacking",
+                    },
+                    score,
+                    match attacking {
+                        false => "not attacking",
+                        true => "attacking",
+                    }
+                );
                 best_dests.clear();
+                best_dests.push(UVec2::new(tile_pos.x, tile_pos.y).as_ivec2());
                 best_score = score;
-            }
-            if score == best_score {
+                best_attacking = attacking;
+            } else if score == best_score {
                 best_dests.push(UVec2::new(tile_pos.x, tile_pos.y).as_ivec2());
             }
         }
