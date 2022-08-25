@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
 use crate::asset::{BodyParts, Terrain, TerrainDescriptor};
+use crate::cutscene::CurrentCutscene;
 use crate::gameplay::insect_body::{InsectPart, InsectPartKind, PartDirection};
 use crate::{gameplay::insect_body::InsectBody, prelude::*};
 use bevy::ecs::system::SystemParam;
@@ -43,6 +44,7 @@ impl std::ops::Index<usize> for Levels {
 pub struct Level {
     pub size_x: u32,
     pub size_y: u32,
+    pub post_cutscene: Option<String>,
 }
 
 pub struct CurrentLevel(pub usize);
@@ -586,6 +588,7 @@ fn start_dating(
             With<MovementTile>,
         )>,
     >,
+    levels: Res<Levels>,
     mut current_level: ResMut<CurrentLevel>,
 ) {
     if units
@@ -594,10 +597,16 @@ fn start_dating(
         .next()
         .is_none()
     {
-        current_level.0 += 1;
-        commands.insert_resource(NextState(AppState::PlayCutscene));
-        for e in to_despawn.iter() {
-            commands.entity(e).despawn_recursive();
+        let level = &levels[current_level.0];
+        if let Some(cutscene) = &level.post_cutscene {
+            commands.insert_resource(CurrentCutscene::new(&cutscene));
+            commands.insert_resource(NextState(AppState::PlayCutscene));
+            current_level.0 += 1;
+            for e in to_despawn.iter() {
+                commands.entity(e).despawn_recursive();
+            }
+        } else {
+            debug!("finished level but there was no cutscene to move to");
         }
     }
 }

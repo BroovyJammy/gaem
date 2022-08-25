@@ -32,7 +32,6 @@ use crate::prelude::*;
     Clone, Copy, Debug, Eq, Hash, PartialEq, Default, Reflect, FromReflect, serde::Deserialize,
 )]
 pub enum AppState {
-    Dating, // unused but scene files die otherwise
     #[default]
     AssetsLoading,
     MainMenu,
@@ -109,10 +108,12 @@ fn main() {
         gameplay::Level {
             size_x: 32,
             size_y: 32,
+            post_cutscene: Some("iyes finds god".into()),
         },
         gameplay::Level {
             size_x: 64,
             size_y: 64,
+            post_cutscene: None,
         },
     ]));
 

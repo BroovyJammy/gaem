@@ -1,24 +1,26 @@
 use bevy::utils::FloatOrd;
 
-use crate::{prelude::*, asset::{CutsceneAssets, UiScenes}, scene_export, ui::{TextPurpose, TextProps}};
+use crate::{
+    asset::{CutsceneAssets, UiScenes},
+    prelude::*,
+    scene_export,
+    ui::{TextProps, TextPurpose},
+};
 
 pub struct CutscenePlugin;
 
 impl Plugin for CutscenePlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(
-            cutscene_driver
-                .run_in_state(AppState::PlayCutscene)
-        );
-        app.add_system(
-            update_dialogue_box
-                .run_in_state(AppState::PlayCutscene)
-        );
+        app.add_system(cutscene_driver.run_in_state(AppState::PlayCutscene));
+        app.add_system(update_dialogue_box.run_in_state(AppState::PlayCutscene));
         app.add_enter_system(AppState::PlayCutscene, init_cutscene);
         app.add_enter_system(AppState::PlayCutscene, setup_dialogue_box);
         app.add_exit_system(AppState::PlayCutscene, cleanup_cutscene);
         app.add_exit_system(AppState::PlayCutscene, despawn_with::<DialogueBox>);
-        app.add_exit_system(AppState::PlayCutscene, remove_resource::<CutscenePlayerState>);
+        app.add_exit_system(
+            AppState::PlayCutscene,
+            remove_resource::<CutscenePlayerState>,
+        );
         app.register_type::<DialogueBox>();
     }
 }
@@ -106,12 +108,17 @@ fn init_cutscene(
     mut assets: ResMut<Assets<CutsceneMetaAsset>>,
     mut current: ResMut<CurrentCutscene>,
 ) {
-    current.handle = Some(find_cutscene_by_title(&*collection, &*assets, &current.title));
+    current.handle = Some(find_cutscene_by_title(
+        &*collection,
+        &*assets,
+        &current.title,
+    ));
 
     // sort scene spawn/despawn events by time
     let meta = assets.get_mut(current.handle.as_ref().unwrap()).unwrap();
     meta.spawn_scene.sort_by_key(|entry| FloatOrd(entry.t_sec));
-    meta.despawn_scene.sort_by_key(|entry| FloatOrd(entry.t_sec));
+    meta.despawn_scene
+        .sort_by_key(|entry| FloatOrd(entry.t_sec));
 
     let player = CutscenePlayerState {
         start: time.startup() + time.time_since_startup(),
@@ -213,7 +220,7 @@ fn get_scene_by_name(ass: &AssetServer, name: &str) -> Handle<DynamicScene> {
 fn find_cutscene_by_title(
     collection: &CutsceneAssets,
     assets: &Assets<CutsceneMetaAsset>,
-    title: &str
+    title: &str,
 ) -> Handle<CutsceneMetaAsset> {
     for handle in collection.meta.iter() {
         let ass = assets.get(handle).unwrap();
@@ -224,10 +231,7 @@ fn find_cutscene_by_title(
     panic!("Unknown cutscene title {:?}", title);
 }
 
-fn setup_dialogue_box(
-    mut scene_spawner: ResMut<SceneSpawner>,
-    ui_scenes: Res<UiScenes>,
-) {
+fn setup_dialogue_box(mut scene_spawner: ResMut<SceneSpawner>, ui_scenes: Res<UiScenes>) {
     scene_spawner.spawn_dynamic(ui_scenes.dialogue_box.clone());
 }
 
@@ -257,45 +261,52 @@ fn update_dialogue_box(
         } else {
             return;
         };
-        let name = commands.spawn_bundle(NodeBundle {
-            color: UiColor(Color::DARK_GRAY),
-            style: Style {
-                flex_wrap: FlexWrap::Wrap,
-                margin: UiRect::all(Val::Px(8.0)),
+        let name = commands
+            .spawn_bundle(NodeBundle {
+                color: UiColor(Color::DARK_GRAY),
+                style: Style {
+                    flex_wrap: FlexWrap::Wrap,
+                    margin: UiRect::all(Val::Px(8.0)),
+                    ..Default::default()
+                },
                 ..Default::default()
-            },
-            ..Default::default()
-        }).with_children(|p| {
-            p.spawn_bundle(TextBundle {
-                ..Default::default()
-            }).insert(TextProps {
-                value: name,
-                purpose: TextPurpose::Heading,
-            });
-        }).id();
-        let text = commands.spawn_bundle(NodeBundle {
-            color: UiColor(Color::DARK_GRAY),
-            style: Style {
-                flex_direction: FlexDirection::Row,
-                align_content: AlignContent::FlexStart,
-                align_items: AlignItems::FlexStart,
-                justify_content: JustifyContent::FlexStart,
-                flex_wrap: FlexWrap::WrapReverse,
-                margin: UiRect::all(Val::Px(8.0)),
-                ..Default::default()
-            },
-            ..Default::default()
-        }).with_children(|p| {
-            for word in text.split_ascii_whitespace() {
+            })
+            .with_children(|p| {
                 p.spawn_bundle(TextBundle {
                     ..Default::default()
-                }).insert(TextProps {
-                    value: format!("{} ", word),
-                    purpose: TextPurpose::Dialogue,
+                })
+                .insert(TextProps {
+                    value: name,
+                    purpose: TextPurpose::Heading,
                 });
-            }
-        }).id();
+            })
+            .id();
+        let text = commands
+            .spawn_bundle(NodeBundle {
+                color: UiColor(Color::DARK_GRAY),
+                style: Style {
+                    flex_direction: FlexDirection::Row,
+                    align_content: AlignContent::FlexStart,
+                    align_items: AlignItems::FlexStart,
+                    justify_content: JustifyContent::FlexStart,
+                    flex_wrap: FlexWrap::WrapReverse,
+                    margin: UiRect::all(Val::Px(8.0)),
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
+            .with_children(|p| {
+                for word in text.split_ascii_whitespace() {
+                    p.spawn_bundle(TextBundle {
+                        ..Default::default()
+                    })
+                    .insert(TextProps {
+                        value: format!("{} ", word),
+                        purpose: TextPurpose::Dialogue,
+                    });
+                }
+            })
+            .id();
         commands.entity(e).push_children(&[name, text]);
     }
 }
-
