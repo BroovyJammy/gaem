@@ -81,7 +81,14 @@ impl Plugin for GameplayPlugin {
                 .run_in_state(Turn::goodie())
                 .run_if_resource_exists::<SelectedUnit>(),
         );
-        app.add_system(despawn_ghost.run_in_state(AppState::Game));
+        app.add_system(
+            despawn_ghost
+                .run_in_state(AppState::Game)
+                .label(DespawnGhost),
+        );
+
+        #[derive(SystemLabel)]
+        struct DespawnGhost;
 
         #[derive(SystemLabel)]
         struct Thingy;
@@ -91,7 +98,8 @@ impl Plugin for GameplayPlugin {
             .add_system(
                 insect_body::update_insect_body_tilemap
                     .run_in_state(AppState::Game)
-                    .label(Thingy),
+                    .label(Thingy)
+                    .before(DespawnGhost),
             )
             .add_system(
                 sync_unit_pos_with_transform
@@ -475,8 +483,10 @@ fn spawn_ghost(
 ) {
     if selected_unit.is_changed() {
         let (pos, body) = units.get(selected_unit.unit).unwrap();
+        let e = commands.spawn().id();
+        debug!("e = {:?}", e);
         commands
-            .spawn()
+            .entity(e)
             .insert_bundle(TransformBundle::default())
             .insert(*pos)
             .insert(UpdateBody)
