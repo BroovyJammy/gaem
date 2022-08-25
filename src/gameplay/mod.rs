@@ -161,20 +161,20 @@ impl Plugin for GameplayPlugin {
 
 fn body_sources(stats: &BodyParts) -> (InsectBody, InsectBody, InsectBody) {
     let src_1 = InsectBody::new(vec![
-        InsectPart::new((0, 0), InsectPartKind(1), PartDirection::Down, &stats),
-        InsectPart::new((0, 1), InsectPartKind(3), PartDirection::Up, &stats),
-        InsectPart::new((1, 1), InsectPartKind(0), PartDirection::Right, &stats),
+        InsectPart::new((0, 0), InsectPartKind(1), PartDirection::Down, stats),
+        InsectPart::new((0, 1), InsectPartKind(3), PartDirection::Up, stats),
+        InsectPart::new((1, 1), InsectPartKind(0), PartDirection::Right, stats),
     ]);
     let src_2 = InsectBody::new(vec![
-        InsectPart::new((0, 0), InsectPartKind(3), PartDirection::Down, &stats),
-        InsectPart::new((0, 1), InsectPartKind(0), PartDirection::Up, &stats),
-        InsectPart::new((1, 1), InsectPartKind(2), PartDirection::Right, &stats),
+        InsectPart::new((0, 0), InsectPartKind(3), PartDirection::Down, stats),
+        InsectPart::new((0, 1), InsectPartKind(0), PartDirection::Up, stats),
+        InsectPart::new((1, 1), InsectPartKind(2), PartDirection::Right, stats),
     ]);
     let src_3 = InsectBody::new(vec![
-        InsectPart::new((0, 1), InsectPartKind(5), PartDirection::Left, &stats),
-        InsectPart::new((1, 1), InsectPartKind(7), PartDirection::Up, &stats),
-        InsectPart::new((1, 0), InsectPartKind(6), PartDirection::Down, &stats),
-        InsectPart::new((1, 2), InsectPartKind(4), PartDirection::Right, &stats),
+        InsectPart::new((0, 1), InsectPartKind(5), PartDirection::Left, stats),
+        InsectPart::new((1, 1), InsectPartKind(7), PartDirection::Up, stats),
+        InsectPart::new((1, 0), InsectPartKind(6), PartDirection::Down, stats),
+        InsectPart::new((1, 2), InsectPartKind(4), PartDirection::Right, stats),
     ]);
     (src_1, src_2, src_3)
 }
@@ -291,7 +291,7 @@ impl TerrainInfo<'_, '_> {
             let terrain_entity = terrain_map
                 .get(&TilePos::new(pos.0.x as u32, pos.0.y as u32))
                 .unwrap();
-            let terrain_kind = self.tiles.get(terrain_entity).unwrap().1.clone();
+            let terrain_kind = *self.tiles.get(terrain_entity).unwrap().1;
             Some((terrain_kind, &self.terrain[terrain_kind]))
         }
     }
@@ -686,15 +686,10 @@ fn lose_win_conditions(
     levels: Res<Levels>,
     mut current_level: ResMut<CurrentLevel>,
 ) {
-    if units
-        .iter()
-        .filter(|(_, team)| matches!(team, Team::Baddie))
-        .next()
-        .is_none()
-    {
+    if !units.iter().any(|(_, team)| matches!(team, Team::Baddie)) {
         let level = &levels[current_level.0];
         if let Some(cutscene) = &level.post_cutscene {
-            commands.insert_resource(CurrentCutscene::new(&cutscene));
+            commands.insert_resource(CurrentCutscene::new(cutscene));
             commands.insert_resource(NextState(AppState::PlayCutscene));
             current_level.0 += 1;
         } else {
@@ -702,12 +697,7 @@ fn lose_win_conditions(
         }
     }
 
-    if units
-        .iter()
-        .filter(|(_, team)| matches!(team, Team::Goodie))
-        .next()
-        .is_none()
-    {
+    if !units.iter().any(|(_, team)| matches!(team, Team::Goodie)) {
         *current_level = CurrentLevel(0);
         commands.remove_resource::<CurrentUnits>();
         commands.insert_resource(NextState(AppState::MainMenu));
@@ -727,7 +717,6 @@ fn move_enemy_unit(
     mut commands: Commands,
     move_me: Query<Entity, With<MoveMe>>,
     mut units: Query<(Entity, &mut UnitPos, &InsectBody, &MoveCap, &Team)>,
-    movement_tiles: Query<&TilePos, With<MovementTile>>,
     terrain_info: TerrainInfo<'_, '_>,
     stats: Res<BodyParts>,
 ) {
@@ -861,9 +850,9 @@ fn move_enemy_unit(
 
         let (_, mut unit_pos, _, _, _) = units.get_mut(unit).unwrap();
 
-        let pos = if best_dests.len() > 0 {
+        let pos = if !best_dests.is_empty() {
             best_dests[rand::thread_rng().gen_range(0..best_dests.len())]
-        } else if moveable_to_tiles.len() > 0 {
+        } else if !moveable_to_tiles.is_empty() {
             moveable_to_tiles
                 .iter()
                 .nth(rand::thread_rng().gen_range(0..moveable_to_tiles.len()))

@@ -354,14 +354,14 @@ pub fn merge_insect_bodies(
         .map(move |part| {
             (
                 IVec2::new(part.position.0 as i32, part.position.1 as i32),
-                open_connections(a, &part, stats).collect::<Vec<_>>(),
+                open_connections(a, part, stats).collect::<Vec<_>>(),
             )
         })
         .collect::<StableHashMap<_, _>>();
 
     let mut b_pos_for_connection = StableHashMap::with_hasher(Default::default());
     for part in b.parts.iter() {
-        for connection in open_connections(&b, &part, stats) {
+        for connection in open_connections(&b, part, stats) {
             b_pos_for_connection
                 .entry(connection)
                 .or_insert(Vec::new())
@@ -380,7 +380,7 @@ pub fn merge_insect_bodies(
             }
         }
     }
-    let (a_pos, join_dir, b_pos) = if let None = possible_joins.first() {
+    let (a_pos, join_dir, b_pos) = if possible_joins.first().is_none() {
         let filter = |body: &InsectBody, part: &&InsectPart| {
             [
                 IVec2::new(0, 1),
@@ -394,9 +394,9 @@ pub fn merge_insect_bodies(
                 if adjacent.x < 0 || adjacent.y < 0 {
                     return true;
                 }
-                return !body
+                !body
                     .used_tiles
-                    .contains(&(adjacent.x as u32, adjacent.y as u32));
+                    .contains(&(adjacent.x as u32, adjacent.y as u32))
             })
         };
         let a_edge_parts = a
@@ -409,8 +409,8 @@ pub fn merge_insect_bodies(
             .iter()
             .filter(|part| filter(&b, part))
             .collect::<Vec<_>>();
-        assert!(a_edge_parts.len() > 0);
-        assert!(b_edge_parts.len() > 0);
+        assert!(!a_edge_parts.is_empty());
+        assert!(!b_edge_parts.is_empty());
         let a_part = a_edge_parts[rng.gen_range(0..a_edge_parts.len())];
         let b_part = b_edge_parts[rng.gen_range(0..b_edge_parts.len())];
         (

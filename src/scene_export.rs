@@ -1,8 +1,8 @@
-use std::path::{PathBuf, Path};
+use std::path::{Path, PathBuf};
 
 use iyes_scene_tools::*;
 
-use crate::{prelude::*, asset::HandleFromPath};
+use crate::{asset::HandleFromPath, prelude::*};
 
 /// You must add this component to the entities you wanna export via EzScene™
 #[derive(Component)]
@@ -23,19 +23,20 @@ struct EzSceneExport;
 ///
 /// Asset Handles will be ignored, insert a `AssetFromPath` component
 /// instead (will be turned into a real handle at load time)
-fn ezscene(
-    mut commands: Commands,
-) {
+fn ezscene(mut commands: Commands) {
     // have fun!
-    commands.spawn_bundle(SpriteBundle {
-        sprite: Sprite {
-            color: Color::PINK,
-            ..Default::default()
-        },
-        ..default()
-    })
+    commands
+        .spawn_bundle(SpriteBundle {
+            sprite: Sprite {
+                color: Color::PINK,
+                ..Default::default()
+            },
+            ..default()
+        })
         // for our image asset (no need to set the handle in SpriteBundle)
-        .insert(HandleFromPath::<Image>::from("image/dating/spinderella.png"))
+        .insert(HandleFromPath::<Image>::from(
+            "image/dating/spinderella.png",
+        ))
         // dont forget to mark for export
         .insert(EzSceneExport);
 }
@@ -47,6 +48,7 @@ pub struct SceneExportEvent {
 }
 
 /// What to include in the scene
+#[allow(dead_code)]
 pub enum SceneExportKind {
     Ui,
     GameLevel,
@@ -60,9 +62,7 @@ impl Plugin for SceneExportPlugin {
         app.init_resource::<Events<SceneExportEvent>>();
         app.add_system_to_stage(
             CoreStage::Last,
-            export_scene_system
-                .exclusive_system()
-                .at_end()
+            export_scene_system.exclusive_system().at_end(),
         );
         app.add_enter_system(AppState::EditorEzScene, ezscene);
         app.add_system(export_on_f10.run_in_state(AppState::EditorEzScene));
@@ -119,9 +119,15 @@ fn export_scene_ui(world: &mut World, path: &Path) {
         // ),
         With<Node>,
     >();
-    builder.ignore_components::<
-        (&Transform, &GlobalTransform, &Visibility, &ComputedVisibility, &Node, &CalculatedSize, &Text)
-    >();
+    builder.ignore_components::<(
+        &Transform,
+        &GlobalTransform,
+        &Visibility,
+        &ComputedVisibility,
+        &Node,
+        &CalculatedSize,
+        &Text,
+    )>();
 
     if let Err(e) = builder.export_to_file(path) {
         error!("UI Scene export to {:?} failed: {}", path, e);
@@ -129,7 +135,7 @@ fn export_scene_ui(world: &mut World, path: &Path) {
 }
 
 fn export_scene_gamelevel(world: &mut World, path: &Path) {
-    let mut builder = SceneBuilder::new(world);
+    let builder = SceneBuilder::new(world);
 
     if let Err(e) = builder.export_to_file(path) {
         error!("Game Level Scene export to {:?} failed: {:#}", path, e);
@@ -139,12 +145,15 @@ fn export_scene_gamelevel(world: &mut World, path: &Path) {
 fn export_scene_ezscene(world: &mut World, path: &Path) {
     let mut builder = SceneBuilder::new(world);
 
-    builder.add_from_query_filter::<
-        With<EzSceneExport>,
-    >();
-    builder.ignore_components::<
-        (&GlobalTransform, &Visibility, &ComputedVisibility, &Handle<Image>, &Handle<Font>, &Handle<DynamicScene>)
-    >();
+    builder.add_from_query_filter::<With<EzSceneExport>>();
+    builder.ignore_components::<(
+        &GlobalTransform,
+        &Visibility,
+        &ComputedVisibility,
+        &Handle<Image>,
+        &Handle<Font>,
+        &Handle<DynamicScene>,
+    )>();
 
     if let Err(e) = builder.export_to_file(path) {
         error!("EzScene™ Scene export to {:?} failed: {}", path, e);
@@ -152,10 +161,7 @@ fn export_scene_ezscene(world: &mut World, path: &Path) {
     info!("EzScene™ exported successfully to {:?}", path);
 }
 
-fn export_on_f10(
-    input: Res<Input<KeyCode>>,
-    mut evw: EventWriter<SceneExportEvent>,
-) {
+fn export_on_f10(input: Res<Input<KeyCode>>, mut evw: EventWriter<SceneExportEvent>) {
     if input.just_pressed(KeyCode::F10) {
         evw.send(SceneExportEvent {
             kind: SceneExportKind::EzScene,
@@ -181,6 +187,8 @@ fn setup_untextured_sprite(
     q: Query<Entity, (Added<Sprite>, Without<Handle<Image>>)>,
 ) {
     for e in q.iter() {
-        commands.entity(e).insert(bevy::render::texture::DEFAULT_IMAGE_HANDLE.typed::<Image>());
+        commands
+            .entity(e)
+            .insert(bevy::render::texture::DEFAULT_IMAGE_HANDLE.typed::<Image>());
     }
 }

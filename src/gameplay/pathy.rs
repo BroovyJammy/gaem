@@ -56,7 +56,7 @@ where
             continue;
         }
 
-        let entry = scores.entry(pos.into());
+        let entry = scores.entry(pos);
         if let Entry::Occupied(existing_score) = &entry {
             if *existing_score.get() < score {
                 continue;

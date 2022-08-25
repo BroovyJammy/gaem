@@ -1,4 +1,7 @@
-use crate::{prelude::*, scene_export::{SceneExportEvent, SceneExportKind}, asset::{UiScenes, UiAssets}};
+use crate::{
+    asset::{UiAssets, UiScenes},
+    prelude::*,
+};
 
 pub struct UiPlugin;
 
@@ -17,12 +20,8 @@ impl Plugin for UiPlugin {
         // all the butts
         app.register_type::<butts::ButtExit>();
         app.register_type::<butts::ButtTransition<AppState>>();
-        app.add_system(
-            butts_interaction.chain(butts::handle_butt_exit)
-        );
-        app.add_system(
-            butts_interaction.chain(butts::handle_butt_transition::<AppState>)
-        );
+        app.add_system(butts_interaction.chain(butts::handle_butt_exit));
+        app.add_system(butts_interaction.chain(butts::handle_butt_transition::<AppState>));
     }
 }
 
@@ -48,7 +47,7 @@ pub enum TextPurpose {
 }
 
 impl TextProps {
-    fn into_text(&self, uiass: &UiAssets) -> Text {
+    fn as_text(&self, uiass: &UiAssets) -> Text {
         Text::from_section(&self.value, self.purpose.into_text_style(uiass))
     }
 }
@@ -108,17 +107,18 @@ fn setup_ui_blueprints(
     ui_assets: Res<UiAssets>,
 ) {
     for e in q.iter() {
-        commands.entity(e)
+        commands
+            .entity(e)
             .insert_bundle(SpatialBundle::default())
             .insert(Node::default());
     }
     for e in q_btn.iter() {
-        commands.entity(e)
-            .insert(Interaction::default());
+        commands.entity(e).insert(Interaction::default());
     }
     for (e, textprops) in q_text.iter() {
-        commands.entity(e)
-            .insert(textprops.into_text(&*ui_assets))
+        commands
+            .entity(e)
+            .insert(textprops.as_text(&*ui_assets))
             .insert(CalculatedSize::default());
     }
 }
@@ -138,10 +138,7 @@ fn setup_main_menu(
     */
 }
 
-fn cleanup_main_menu(
-    mut scene_spawner: ResMut<SceneSpawner>,
-    ui_scenes: Res<UiScenes>,
-) {
+fn cleanup_main_menu(mut scene_spawner: ResMut<SceneSpawner>, ui_scenes: Res<UiScenes>) {
     scene_spawner.despawn(ui_scenes.main_menu.clone());
 }
 
@@ -156,7 +153,7 @@ pub struct InteractColors {
 fn butts_visuals(
     mut q_color: Query<
         (&Interaction, &InteractColors, &mut UiColor),
-        (Changed<Interaction>, With<Button>)
+        (Changed<Interaction>, With<Button>),
     >,
 ) {
     for (interaction, colors, mut uicolor) in q_color.iter_mut() {
@@ -182,7 +179,7 @@ fn butts_interaction<B: Component + Clone>(
 
 mod butts {
     use crate::prelude::*;
-    use bevy::{ecs::schedule::StateData, app::AppExit};
+    use bevy::{app::AppExit, ecs::schedule::StateData};
 
     #[derive(Component, Clone, Default, Reflect, FromReflect)]
     #[reflect(Component)]
@@ -203,11 +200,8 @@ mod butts {
     #[reflect(Component)]
     pub struct ButtExit;
 
-    pub fn handle_butt_exit(
-        In(butt): In<Option<ButtExit>>,
-        mut evw: EventWriter<AppExit>,
-    ) {
-        if let Some(_) = butt {
+    pub fn handle_butt_exit(In(butt): In<Option<ButtExit>>, mut evw: EventWriter<AppExit>) {
+        if butt.is_some() {
             evw.send(AppExit);
         }
     }

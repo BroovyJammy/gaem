@@ -3,7 +3,6 @@ use bevy::utils::FloatOrd;
 use crate::{
     asset::{CutsceneAssets, UiScenes},
     prelude::*,
-    scene_export,
     ui::{TextProps, TextPurpose},
 };
 
@@ -136,7 +135,6 @@ fn init_cutscene(
 }
 
 fn cleanup_cutscene(
-    mut commands: Commands,
     mut scenespawner: ResMut<SceneSpawner>,
     mut player: ResMut<CutscenePlayerState>,
     ui_scenes: Res<UiScenes>,
@@ -178,11 +176,11 @@ fn cutscene_driver(
                     player.current_dialogue = *n;
                 }
                 DialogueNext::AppState(state) => {
-                    commands.insert_resource(NextState(state.clone()));
+                    commands.insert_resource(NextState(*state));
                 }
                 DialogueNext::Cutscene(cutscene) => {
                     commands.insert_resource(NextState(AppState::PlayCutscene));
-                    commands.insert_resource(CurrentCutscene::new(&cutscene));
+                    commands.insert_resource(CurrentCutscene::new(cutscene));
                 }
             }
         }
