@@ -370,6 +370,14 @@ fn handle_select_action(
     tile_selected_writer.send(TileSelected(cursor_pos.pos));
 
     for (unit, pos, body, team, _) in &units {
+        if selected_unit
+            .as_ref()
+            .map(|selected_unit| selected_unit.unit == unit)
+            .unwrap_or(false)
+        {
+            continue;
+        }
+
         if body.contains_tile(*pos, cursor_pos.pos) {
             match team {
                 Team::Goodie => commands.insert_resource(SelectedUnit {
