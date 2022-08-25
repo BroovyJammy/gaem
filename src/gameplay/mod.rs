@@ -90,9 +90,11 @@ impl Plugin for GameplayPlugin {
                     .run_in_state(AppState::Game)
                     .after(InputHandlingSystem),
             )
-            .insert_resource(CursorTilePos {
-                pos: IVec2::new(20, 20),
-                snap_camera_to: true,
+            .add_enter_system(AppState::Game, |mut cmds: Commands| {
+                cmds.insert_resource(CursorTilePos {
+                    pos: IVec2::new(20, 20),
+                    snap_camera_to: true,
+                })
             })
             .add_event::<TileSelected>()
             .add_system(

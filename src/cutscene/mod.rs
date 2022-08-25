@@ -107,7 +107,10 @@ fn init_cutscene(
     collection: Res<CutsceneAssets>,
     mut assets: ResMut<Assets<CutsceneMetaAsset>>,
     mut current: ResMut<CurrentCutscene>,
+    mut camera: Query<&mut Transform, With<Camera>>,
 ) {
+    *camera.single_mut() = default();
+
     current.handle = Some(find_cutscene_by_title(
         &*collection,
         &*assets,
