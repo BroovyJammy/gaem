@@ -132,6 +132,11 @@ impl Plugin for GameplayPlugin {
                     .run_in_state(AppState::Game)
                     .run_in_state(Turn::goodie())
                     .after("update_cursor_pos"),
+            )
+            .add_system(
+                handle_unselect_action
+                    .run_in_state(AppState::Game)
+                    .run_in_state(Turn::goodie()),
             );
 
         app.add_loopless_state(Turn::goodie())
@@ -234,6 +239,7 @@ struct MoveMe;
 pub enum Action {
     MoveSelection,
     Select,
+    Unselect,
     EndTurn,
 }
 
@@ -404,6 +410,12 @@ fn handle_select_action(
     }
 }
 
+fn handle_unselect_action(mut commands: Commands, actioners: Query<&ActionState<Action>>) {
+    if actioners.single().just_pressed(Action::Unselect) {
+        commands.remove_resource::<SelectedUnit>();
+    }
+}
+
 fn highlight_movable_tiles(
     units: Query<(Entity, &UnitPos, &InsectBody, &MoveCap)>,
     mut movement_tiles: Query<(&mut TileTexture, &TilePos), With<MovementTile>>,
@@ -551,6 +563,9 @@ pub fn make_action_manager() -> InputManagerBundle<Action> {
             .insert(KeyCode::Space, Action::Select)
             // `South`, meaning A. South on D-Pad is `DPadDown`.
             .insert(GamepadButtonType::South, Action::Select)
+            .insert(MouseButton::Right, Action::Unselect)
+            .insert(KeyCode::Escape, Action::Unselect)
+            .insert(GamepadButtonType::West, Action::Unselect)
             .insert(KeyCode::Return, Action::EndTurn)
             .insert(GamepadButtonType::Select, Action::EndTurn)
             .insert(GamepadButtonType::North, Action::EndTurn)
