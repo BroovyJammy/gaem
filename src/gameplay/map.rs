@@ -4,6 +4,8 @@ use rand::Rng;
 use crate::asset::{MapAssets, Terrain};
 use crate::prelude::*;
 
+use super::LevelInfo;
+
 #[derive(Hash, Eq, Clone, Component, Copy, PartialEq)]
 pub enum Layer {
     Select,
@@ -52,22 +54,6 @@ pub struct TerrainKind(pub usize);
 #[derive(Component)]
 pub struct TerrainTile;
 
-/// Size in tiles
-#[derive(Copy, Clone)]
-pub struct MapSize(u32);
-impl MapSize {
-    pub fn new() -> Self {
-        Self(64)
-    }
-
-    pub fn size(self) -> u32 {
-        self.0
-    }
-}
-pub fn add_self_to_app(app: &mut App) {
-    app.insert_resource(MapSize::new());
-}
-
 // In pixels
 pub const TILE_SIZE: u32 = 32;
 // Characters will be at `1.`
@@ -82,10 +68,11 @@ pub fn init_map(
     mut commands: Commands,
     assets: Res<MapAssets>,
     terrain: Res<Terrain>,
-    rawr_map_size: Res<MapSize>,
+    level_info: LevelInfo<'_, '_>,
 ) {
     // Some common data between the layers
-    let map_size = UVec2::splat(rawr_map_size.0).into();
+    let map_size: TilemapSize =
+        UVec2::new(level_info.level().size_x, level_info.level().size_y).into();
     let tile_size = Vec2::splat(TILE_SIZE as f32);
     // No `From<Vec2>` T_T
     let grid_size = TilemapGridSize {
@@ -97,17 +84,17 @@ pub fn init_map(
         y: tile_size.y,
     };
 
-    struct EdgeWall(MapSize);
+    struct EdgeWall(UVec2);
 
     impl NoiseFn<[f64; 2]> for EdgeWall {
         fn get(&self, mut point: [f64; 2]) -> f64 {
             for dim in &mut point {
-                if *dim > (self.0.size() / 2) as f64 {
-                    *dim = self.0.size() as f64 - *dim;
+                if *dim > (self.0.x / 2) as f64 {
+                    *dim = self.0.x as f64 - *dim;
                 }
             }
 
-            (1. - (point[0].min(point[1]) / (self.0.size() / 2) as f64)) * 1.1
+            (1. - (point[0].min(point[1]) / (self.0.x / 2) as f64)) * 1.1
         }
     }
 
@@ -118,7 +105,7 @@ pub fn init_map(
     let add = Add::new(fbm, &constant);
 
     let constant = Constant::new(8.);
-    let stupid_rustc = EdgeWall(*rawr_map_size);
+    let stupid_rustc = EdgeWall(UVec2::new(map_size.x, map_size.y));
     let power = Power::new(&stupid_rustc, &constant);
 
     let noise = Add::new(&add, &power);
@@ -134,7 +121,8 @@ pub fn init_map(
                 let tile_pos = UVec2::new(x, y).into();
                 let terrain_kind = TerrainKind(match noise.get([x as f64, y as f64]) > 0. {
                     false => 0,
-                    true => 1,
+                    true => 0,
+                    // true => 1,
                 });
 
                 let mut tile = commands.spawn_bundle(TileBundle {

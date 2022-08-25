@@ -83,8 +83,8 @@ where
             let offsetted = pos.as_ivec2() + offset;
             if offsetted.x < 0
                 || offsetted.y < 0
-                || offsetted.x >= terrain_info.map_size.size() as i32
-                || offsetted.y >= terrain_info.map_size.size() as i32
+                || offsetted.x >= terrain_info.level_info.level().size_x as i32
+                || offsetted.y >= terrain_info.level_info.level().size_y as i32
             {
                 continue;
             }
@@ -116,6 +116,9 @@ pub fn is_place_valid_to_be<'a, 'b>(
             let info = terrain_info(used_tile);
             info.is_none() || info.unwrap().1.wall
         });
+    if overlaps_terrain {
+        return false;
+    }
     let overlaps_units = match check_unit_overlap {
         true => units
             .into_iter()
@@ -123,5 +126,8 @@ pub fn is_place_valid_to_be<'a, 'b>(
             .any(|(_, pos, body)| body.intersects(*pos, mover_body, UnitPos(place))),
         false => false,
     };
-    (!overlaps_terrain) && (!overlaps_units)
+    if overlaps_units {
+        return false;
+    }
+    true
 }

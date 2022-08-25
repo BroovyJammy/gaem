@@ -22,7 +22,7 @@ text = "no? im just an ice cube with eyes"
 
 [[dialogue]]
 mode = { WaitSeconds = 2.0 }
-transition = { AppState = "MainMenu" }
+transition = { AppState = "Game" }
 
 name = "spidre"
 text = "*spin* *spin* *spin*"

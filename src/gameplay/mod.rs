@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use crate::asset::{BodyParts, Terrain, TerrainDescriptor};
 use crate::gameplay::insect_body::{InsectPart, InsectPartKind, PartDirection};
 use crate::{gameplay::insect_body::InsectBody, prelude::*};
@@ -12,10 +14,38 @@ pub mod insect_body;
 use insect_body::{spawn_insect, UpdateBody};
 pub mod map;
 use map::{
-    Layer, LayerToMap, MapSize, MovementTile, Select, SelectTile, TerrainKind, TerrainTile,
-    TILE_SIZE,
+    Layer, LayerToMap, MovementTile, Select, SelectTile, TerrainKind, TerrainTile, TILE_SIZE,
 };
 pub mod pathy;
+
+#[derive(SystemParam)]
+pub struct LevelInfo<'w, 's> {
+    pub levels: Res<'w, Levels>,
+    pub current_level: Res<'w, CurrentLevel>,
+    #[system_param(ignore)]
+    _p: PhantomData<&'s ()>,
+}
+
+impl LevelInfo<'_, '_> {
+    pub fn level(&self) -> &Level {
+        &self.levels[self.current_level.0]
+    }
+}
+
+pub struct Levels(pub Vec<Level>);
+impl std::ops::Index<usize> for Levels {
+    type Output = Level;
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.0[index]
+    }
+}
+
+pub struct Level {
+    pub size_x: u32,
+    pub size_y: u32,
+}
+
+pub struct CurrentLevel(pub usize);
 
 pub struct GameplayPlugin;
 
@@ -192,7 +222,7 @@ pub struct TerrainInfo<'w, 's> {
     pub tilestorages: Query<'w, 's, &'static TileStorage>,
     pub layer_to_map: Res<'w, LayerToMap>,
     pub terrain: Res<'w, Terrain>,
-    pub map_size: Res<'w, MapSize>,
+    pub level_info: LevelInfo<'w, 's>,
 }
 
 impl TerrainInfo<'_, '_> {
@@ -208,9 +238,9 @@ impl TerrainInfo<'_, '_> {
     ) -> impl Fn(UnitPos) -> Option<(TerrainKind, &'a TerrainDescriptor)> + Copy + 'a {
         move |pos| {
             if pos.0.x < 0
-                || pos.0.x >= self.map_size.size() as i32
+                || pos.0.x >= self.level_info.level().size_x as i32
                 || pos.0.y < 0
-                || pos.0.y >= self.map_size.size() as i32
+                || pos.0.y >= self.level_info.level().size_y as i32
             {
                 return None;
             }
@@ -224,19 +254,12 @@ impl TerrainInfo<'_, '_> {
 }
 
 // Temporary (moved to fn since it grew)
-fn insert_units(mut commands: Commands, stats: Res<BodyParts>, map_size: Res<MapSize>) {
+fn insert_units(mut commands: Commands, stats: Res<BodyParts>, level_info: LevelInfo<'_, '_>) {
     let mut team = false;
-    let mut to_spawn = 6;
-    let mut seeds = vec![
-        // 6047867081507468601,
-        // 12271019664952393,
-        // 10008110471549433311,
-        // 8674917015329062650,
-        // 994344906482298040,
-        // 10392307432015055436,
-    ];
-    for x in 5..(map_size.size() - 5) {
-        for y in 5..(map_size.size() - 5) {
+    let mut to_spawn = 3;
+    let mut seeds = vec![];
+    for x in 5..(level_info.level().size_x - 5) {
+        for y in 5..(level_info.level().size_y - 5) {
             if y % 10 != 0 {
                 continue;
             }
@@ -563,6 +586,7 @@ fn start_dating(
             With<MovementTile>,
         )>,
     >,
+    mut current_level: ResMut<CurrentLevel>,
 ) {
     if units
         .iter()
@@ -570,7 +594,8 @@ fn start_dating(
         .next()
         .is_none()
     {
-        commands.insert_resource(NextState(AppState::Dating));
+        current_level.0 += 1;
+        commands.insert_resource(NextState(AppState::PlayCutscene));
         for e in to_despawn.iter() {
             commands.entity(e).despawn_recursive();
         }

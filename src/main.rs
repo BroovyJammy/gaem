@@ -32,7 +32,7 @@ use crate::prelude::*;
     Clone, Copy, Debug, Eq, Hash, PartialEq, Default, Reflect, FromReflect, serde::Deserialize,
 )]
 pub enum AppState {
-    Dating,
+    Dating, // unused but scene files die otherwise
     #[default]
     AssetsLoading,
     MainMenu,
@@ -91,7 +91,6 @@ fn main() {
     app.add_plugin(gameplay::GameplayPlugin);
     app.add_plugin(cutscene::CutscenePlugin);
     app.add_plugin(scene_export::SceneExportPlugin);
-    gameplay::map::add_self_to_app(&mut app);
 
     // some debug diagnostics stuff
     #[cfg(debug_assertions)]
@@ -103,6 +102,19 @@ fn main() {
 
     // temporary for testing
     app.insert_resource(cutscene::CurrentCutscene::new("iyes finds god"));
+
+    app.insert_resource(gameplay::CurrentLevel(0));
+    // temporary, we should load levels from a file
+    app.insert_resource(gameplay::Levels(vec![
+        gameplay::Level {
+            size_x: 32,
+            size_y: 32,
+        },
+        gameplay::Level {
+            size_x: 64,
+            size_y: 64,
+        },
+    ]));
 
     // let's gooo
     app.run();

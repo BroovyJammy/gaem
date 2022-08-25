@@ -30,7 +30,7 @@ connections = [[0, -1]]
 
 [[bodypart]]
 name = "SpiderCore"
-max_health = 5
+max_health = 4
 move_bonus = 0
 damage = 1
 base = true
@@ -51,7 +51,7 @@ connections = [[-1, 0], [1, 0], [0, 1], [0, -1]]
 
 [[bodypart]]
 name = "CockroachHead"
-max_health = 3
+max_health = 4
 move_bonus = 0
 damage = 1
 base = false
