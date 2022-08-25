@@ -132,10 +132,11 @@ impl Plugin for GameplayPlugin {
             .add_exit_system(Turn::baddie(), replenish_move_cap(Team::Goodie))
             .add_enter_system(Turn::baddie(), mark_movables)
             .add_system(
-                start_dating
+                lose_win_conditions
                     .run_in_state(AppState::Game)
                     .run_in_state(Turn::goodie()),
-            );
+            )
+            .add_exit_system(AppState::Game, cleanup_stuff);
     }
 }
 
@@ -577,9 +578,8 @@ fn end_turn(mut commands: Commands, actioners: Query<&ActionState<Action>>) {
     }
 }
 
-fn start_dating(
+fn cleanup_stuff(
     mut commands: Commands<'_, '_>,
-    units: Query<(Entity, &Team)>,
     to_despawn: Query<
         Entity,
         Or<(
@@ -590,6 +590,15 @@ fn start_dating(
             With<MovementTile>,
         )>,
     >,
+) {
+    for e in to_despawn.iter() {
+        commands.entity(e).despawn_recursive();
+    }
+}
+
+fn lose_win_conditions(
+    mut commands: Commands<'_, '_>,
+    units: Query<(Entity, &Team)>,
     levels: Res<Levels>,
     mut current_level: ResMut<CurrentLevel>,
 ) {
@@ -604,12 +613,19 @@ fn start_dating(
             commands.insert_resource(CurrentCutscene::new(&cutscene));
             commands.insert_resource(NextState(AppState::PlayCutscene));
             current_level.0 += 1;
-            for e in to_despawn.iter() {
-                commands.entity(e).despawn_recursive();
-            }
         } else {
             debug!("finished level but there was no cutscene to move to");
         }
+    }
+
+    if units
+        .iter()
+        .filter(|(_, team)| matches!(team, Team::Goodie))
+        .next()
+        .is_none()
+    {
+        *current_level = CurrentLevel(0);
+        commands.insert_resource(NextState(AppState::MainMenu));
     }
 }
 
