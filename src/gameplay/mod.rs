@@ -636,10 +636,11 @@ fn update_cursor_pos(
     mut cursor: ResMut<CursorTilePos>,
 ) {
     let window = windows.get_primary().unwrap();
-    let position = match match cursor_movement.iter().find(|event| event.id == window.id()) {
-        Some(_) => window.cursor_position(),
-        None => None,
-    } {
+    let position = match cursor_movement
+        .iter()
+        .find(|event| event.id == window.id())
+        .and_then(|_| window.cursor_position())
+    {
         Some(a) => Some(a),
         None => match reselect_tile.iter().next() {
             Some(_) => Some(Vec2::new(window.width(), window.height()) / 2.),

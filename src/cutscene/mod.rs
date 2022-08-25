@@ -108,7 +108,9 @@ fn init_cutscene(
     mut current: ResMut<CurrentCutscene>,
     mut camera: Query<&mut Transform, With<Camera>>,
 ) {
-    *camera.single_mut() = default();
+    let mut camera_trans = camera.single_mut();
+    camera_trans.translation.x = 0.;
+    camera_trans.translation.y = 0.;
 
     current.handle = Some(find_cutscene_by_title(
         &*collection,
