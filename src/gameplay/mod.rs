@@ -5,7 +5,7 @@ use crate::cutscene::CurrentCutscene;
 use crate::gameplay::insect_body::{InsectPart, InsectPartKind, PartDirection};
 use crate::{gameplay::insect_body::InsectBody, prelude::*};
 use bevy::ecs::system::SystemParam;
-use bevy::utils::HashSet;
+use bevy::utils::{HashSet, StableHashMap};
 use leafwing_input_manager::user_input::InputKind;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
@@ -16,6 +16,8 @@ pub mod map;
 use map::{
     Layer, LayerToMap, MovementTile, Select, SelectTile, TerrainKind, TerrainTile, TILE_SIZE,
 };
+
+use self::insect_body::InsectRenderEntities;
 pub mod pathy;
 
 pub struct CurrentUnits(Vec<InsectBody>);
@@ -67,6 +69,20 @@ impl Plugin for GameplayPlugin {
                 .run_in_state(AppState::Game)
                 .run_if_resource_removed::<SelectedUnit>(),
         );
+        app.add_system(
+            spawn_ghost
+                .run_in_state(AppState::Game)
+                .run_in_state(Turn::goodie())
+                .run_if_resource_exists::<SelectedUnit>(),
+        );
+        app.add_system(
+            move_ghost
+                .run_in_state(AppState::Game)
+                .run_in_state(Turn::goodie())
+                .run_if_resource_exists::<SelectedUnit>(),
+        );
+        app.add_system(despawn_ghost.run_in_state(AppState::Game));
+
         #[derive(SystemLabel)]
         struct Thingy;
 
@@ -424,6 +440,65 @@ fn highlight_movable_tiles(
             ))
             .unwrap();
         *movement_tiles.get_mut(tile).unwrap().0 = Select::Active.into();
+    }
+}
+
+#[derive(Component)]
+pub struct Ghost;
+
+// A ghost is the unit that shows under your cursor when you have a unit selected
+// 👻
+fn spawn_ghost(
+    mut commands: Commands,
+    units: Query<(&UnitPos, &InsectBody)>,
+    selected_unit: Res<SelectedUnit>,
+) {
+    if selected_unit.is_changed() {
+        let (pos, body) = units.get(selected_unit.unit).unwrap();
+        commands
+            .spawn()
+            .insert_bundle(TransformBundle::default())
+            .insert(*pos)
+            .insert(body.clone())
+            .insert(UpdateBody)
+            .insert(Team::Goodie)
+            .insert(InsectRenderEntities {
+                hp_bar: StableHashMap::with_hasher(default()),
+                body_part: StableHashMap::with_hasher(default()),
+            })
+            .insert_bundle(VisibilityBundle::default())
+            .insert(Ghost);
+    }
+}
+
+// Causes the ghost to haunt the cursor
+fn move_ghost(
+    mut ghosts: Query<&mut UnitPos, With<Ghost>>,
+    selected_unit: Res<SelectedUnit>,
+    cursor_pos: Res<CursorTilePos>,
+) {
+    if !cursor_pos.is_changed() {
+        return;
+    }
+
+    **match ghosts.get_single_mut() {
+        Ok(ghost) => ghost,
+        Err(_) => return,
+    } = cursor_pos.pos - selected_unit.at_local_pos.as_ivec2();
+}
+
+fn despawn_ghost(
+    mut commands: Commands,
+    selected_unit: Option<Res<SelectedUnit>>,
+    ghosts: Query<Entity, With<Ghost>>,
+) {
+    if selected_unit
+        .map(|selected_unit| selected_unit.is_changed())
+        .unwrap_or(true)
+    {
+        for ghost in &ghosts {
+            commands.entity(ghost).despawn_recursive();
+        }
     }
 }
 

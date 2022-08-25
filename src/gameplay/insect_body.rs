@@ -1,3 +1,4 @@
+use super::Ghost;
 use super::{map::TILE_SIZE, MoveCap, Team, UnitPos};
 use crate::asset::{BodyParts, MapAssets};
 use crate::prelude::*;
@@ -222,11 +223,20 @@ pub fn spawn_insect(
 
 pub fn update_insect_body_tilemap(
     mut cmds: Commands<'_, '_>,
-    mut insects: Query<(Entity, &InsectBody, &Team, &mut InsectRenderEntities), With<UpdateBody>>,
+    mut insects: Query<
+        (
+            Entity,
+            &InsectBody,
+            &Team,
+            &mut InsectRenderEntities,
+            Option<&Ghost>,
+        ),
+        With<UpdateBody>,
+    >,
     assets: Res<MapAssets>,
     stats: Res<BodyParts>,
 ) {
-    for (entity, body, team, mut render_body_parts) in insects.iter_mut() {
+    for (entity, body, team, mut render_body_parts, ghost) in insects.iter_mut() {
         for child in render_body_parts.body_part.values() {
             cmds.entity(*child).despawn_recursive();
         }
@@ -239,11 +249,16 @@ pub fn update_insect_body_tilemap(
         cmds.entity(entity)
             .with_children(|child_builder| {
                 for part in body.parts.iter() {
+                    let color = team.color();
+                    let color = match ghost.is_some() {
+                        false => color,
+                        true => Vec4::from(color).truncate().extend(0.5).into(),
+                    };
                     let body_part = child_builder
                         .spawn_bundle(SpriteSheetBundle {
                             sprite: TextureAtlasSprite {
                                 index: stats[part.kind].sprite_idx,
-                                color: team.color(),
+                                color,
                                 anchor: Anchor::Center,
                                 ..default()
                             },
