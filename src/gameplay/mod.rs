@@ -625,8 +625,8 @@ fn camera_to_selected_tile(
     let map_trans = *set.p1().get(map_entity).unwrap();
     let selected_tile_pos = map_trans.translation
         + (selected_tile.pos * IVec2::splat(TILE_SIZE as i32))
-            .extend(0)
-            .as_vec3();
+            .as_vec2()
+            .extend(900.);
 
     let mut temp = set.p0();
     let mut camera_trans = temp.get_single_mut().unwrap();
