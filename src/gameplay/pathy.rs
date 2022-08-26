@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use bevy::utils::{hashbrown::hash_map::Entry, StableHashMap, StableHashSet};
 
 use crate::{asset::TerrainDescriptor, prelude::*};
@@ -48,32 +50,12 @@ where
     let terrain_map = terrain_info.get_terrain_map();
     let terrain_descriptor = terrain_info.get_terrain_descriptor(terrain_map);
 
-    let mut scores = StableHashMap::<UVec2, u64>::with_hasher(default());
-    let mut todo_list = vec![(starting_pos, 0_u64)];
+    let mut scores = StableHashMap::with_hasher(default());
+    scores.insert(starting_pos, 0u64);
+    let mut todo_list = VecDeque::new();
+    todo_list.push_front((starting_pos, 0u64));
 
-    while let Some((pos, score)) = todo_list.pop() {
-        if score > move_cap.0 as u64 {
-            continue;
-        }
-
-        let entry = scores.entry(pos);
-        if let Entry::Occupied(existing_score) = &entry {
-            if *existing_score.get() < score {
-                continue;
-            }
-        } else if !is_place_valid_to_be(
-            false,
-            entity,
-            body,
-            pos.as_ivec2(),
-            units(),
-            terrain_descriptor,
-        ) {
-            continue;
-        }
-
-        entry.insert(score);
-
+    while let Some((pos, score)) = todo_list.pop_back() {
         for offset in [
             IVec2::new(-1, 0),
             IVec2::new(1, 0),
@@ -88,7 +70,35 @@ where
             {
                 continue;
             }
-            todo_list.push((offsetted.as_uvec2(), score + 1));
+
+            if score + 1 > move_cap.0 as u64 {
+                continue;
+            }
+
+            let entry = scores.entry(offsetted.as_uvec2());
+            if let Entry::Occupied(existing_score) = &entry {
+                if *existing_score.get() <= score + 1 {
+                    continue;
+                }
+            }
+
+            // only check for collisions when the entry isnt present, as if it _is_ present
+            // then its valid for the insect to be positioned there so this would be redundant.
+            if matches!(&entry, Entry::Vacant(_))
+                && !is_place_valid_to_be(
+                    false,
+                    entity,
+                    body,
+                    pos.as_ivec2(),
+                    units(),
+                    terrain_descriptor,
+                )
+            {
+                continue;
+            }
+            entry.insert(score + 1);
+
+            todo_list.push_front((offsetted.as_uvec2(), score + 1));
         }
     }
 
