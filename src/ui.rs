@@ -1,5 +1,6 @@
 use crate::{
-    asset::{UiAssets, UiScenes},
+    asset::{BodyParts, UiAssets, UiScenes},
+    gameplay::HoveredInsectPart,
     prelude::*,
 };
 
@@ -22,6 +23,10 @@ impl Plugin for UiPlugin {
         app.register_type::<butts::ButtTransition<AppState>>();
         app.add_system(butts_interaction.chain(butts::handle_butt_exit));
         app.add_system(butts_interaction.chain(butts::handle_butt_transition::<AppState>));
+        app.add_enter_system(AppState::Game, spawn_sidebar);
+        app.add_exit_system(AppState::Game, despawn_sidebar);
+        app.add_system(add_sidebar_font.run_not_in_state(AppState::AssetsLoading));
+        app.add_system(update_sidebar.run_in_state(AppState::Game));
     }
 }
 
@@ -203,6 +208,143 @@ mod butts {
     pub fn handle_butt_exit(In(butt): In<Option<ButtExit>>, mut evw: EventWriter<AppExit>) {
         if butt.is_some() {
             evw.send(AppExit);
+        }
+    }
+}
+
+// Ok it's not really a sidebar anymore. Cornerbar?
+#[derive(Component)]
+struct Sidebar;
+
+#[derive(Component, FromReflect, Reflect)]
+pub struct SidebarName;
+
+#[derive(Component, FromReflect, Reflect)]
+pub struct SidebarHealth;
+
+#[derive(Component, FromReflect, Reflect)]
+pub struct SidebarDamage;
+
+#[derive(Component, FromReflect, Reflect)]
+pub struct SidebarSpeed;
+
+// Should be a scene, but I was having trouble with EzScene™
+fn spawn_sidebar(mut commands: Commands) {
+    commands
+        .spawn_bundle(NodeBundle {
+            style: Style {
+                flex_direction: FlexDirection::RowReverse,
+                align_items: AlignItems::FlexEnd,
+                size: Size::new(Val::Percent(100.), Val::Percent(100.)),
+                ..default()
+            },
+            color: Color::NONE.into(),
+            ..default()
+        })
+        .with_children(|parent| {
+            parent
+                .spawn_bundle(NodeBundle {
+                    style: Style {
+                        flex_direction: FlexDirection::ColumnReverse,
+                        align_items: AlignItems::FlexStart,
+                        ..default()
+                    },
+                    color: Color::rgb(0.2, 0., 0.).into(),
+                    ..default()
+                })
+                .with_children(|parent| {
+                    parent
+                        .spawn_bundle(TextBundle {
+                            text: Text::from_section(
+                                "Spider Core",
+                                TextStyle {
+                                    font_size: 24.,
+                                    ..default()
+                                },
+                            ),
+                            ..default()
+                        })
+                        .insert(SidebarName);
+
+                    let text_style = TextStyle {
+                        font_size: 18.,
+                        ..default()
+                    };
+
+                    parent
+                        .spawn_bundle(TextBundle {
+                            text: Text::from_section("Max Health: 4", text_style.clone()),
+                            ..default()
+                        })
+                        .insert(SidebarHealth);
+
+                    parent
+                        .spawn_bundle(TextBundle {
+                            text: Text::from_section("Damage: 1 Adjacent", text_style.clone()),
+                            ..default()
+                        })
+                        .insert(SidebarDamage);
+
+                    parent
+                        .spawn_bundle(TextBundle {
+                            text: Text::from_section("Speed: 0", text_style),
+                            ..default()
+                        })
+                        .insert(SidebarSpeed);
+                });
+        })
+        .insert(Sidebar);
+}
+
+fn despawn_sidebar(mut commands: Commands, sidebars: Query<Entity, With<Sidebar>>) {
+    for sidebar in &sidebars {
+        commands.entity(sidebar).despawn_recursive();
+    }
+}
+
+fn add_sidebar_font(
+    mut sidebar_texts: Query<
+        &mut Text,
+        Or<(
+            Added<SidebarName>,
+            Added<SidebarHealth>,
+            Added<SidebarDamage>,
+            Added<SidebarSpeed>,
+        )>,
+    >,
+    assets: Res<UiAssets>,
+) {
+    for mut text in &mut sidebar_texts {
+        text.sections[0].style.font = assets.font_bold.clone();
+    }
+}
+
+fn update_sidebar(
+    mut sidebar_texts: Query<(
+        &mut Text,
+        AnyOf<(&SidebarName, &SidebarHealth, &SidebarDamage, &SidebarSpeed)>,
+    )>,
+    hovered_insect_part: Res<HoveredInsectPart>,
+    body_parts: Res<BodyParts>,
+) {
+    for (mut text, sidebar_items) in &mut sidebar_texts {
+        text.sections[0].value = if let Some(hovered_insect_part) = **hovered_insect_part {
+            let part = &body_parts[hovered_insect_part];
+            match sidebar_items {
+                (Some(_), _, _, _) => part.pub_name.clone(),
+                (_, Some(_), _, _) => format!("Max Health: {}", part.max_health),
+                (_, _, Some(_), _) => format!(
+                    "Damage: {}",
+                    match part.damage {
+                        0 => "0".to_string(),
+                        damage => format!("{} Adjacent", damage),
+                    }
+                ),
+                (_, _, _, Some(_)) => format!("Speed: {}", part.move_bonus),
+                _ => "".to_string(),
+            }
+        } else {
+            "".to_string()
         }
     }
 }

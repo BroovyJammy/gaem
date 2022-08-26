@@ -1,8 +1,9 @@
 use std::marker::PhantomData;
 
 use crate::{
+    cutscene::CutsceneMetaAsset,
     gameplay::{insect_body::InsectPartKind, map::TerrainKind},
-    prelude::*, cutscene::CutsceneMetaAsset,
+    prelude::*,
 };
 use bevy::asset::Asset;
 use bevy_asset_loader::prelude::*;
@@ -101,6 +102,8 @@ impl std::ops::Index<InsectPartKind> for BodyParts {
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct BodyPartDescriptor {
     pub name: String,
+    // Name that can be shown to players
+    pub pub_name: String,
     pub max_health: u32,
     pub move_bonus: u32,
     pub damage: u32,
@@ -260,7 +263,6 @@ fn setup_handle_from_path<T: Asset>(
     ass: Res<AssetServer>,
 ) {
     for (e, hfp) in q.iter() {
-        commands.entity(e)
-            .insert(ass.load::<T, _>(&hfp.path));
+        commands.entity(e).insert(ass.load::<T, _>(&hfp.path));
     }
 }

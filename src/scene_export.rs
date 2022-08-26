@@ -2,7 +2,11 @@ use std::path::{Path, PathBuf};
 
 use iyes_scene_tools::*;
 
-use crate::{asset::HandleFromPath, prelude::*};
+use crate::{
+    asset::HandleFromPath,
+    prelude::*,
+    ui::{SidebarDamage, SidebarHealth, SidebarName, SidebarSpeed},
+};
 
 /// You must add this component to the entities you wanna export via EzScene™
 #[derive(Component)]
@@ -24,21 +28,90 @@ struct EzSceneExport;
 /// Asset Handles will be ignored, insert a `AssetFromPath` component
 /// instead (will be turned into a real handle at load time)
 fn ezscene(mut commands: Commands) {
-    // have fun!
     commands
-        .spawn_bundle(SpriteBundle {
-            sprite: Sprite {
-                color: Color::PINK,
-                ..Default::default()
+        .spawn_bundle(NodeBundle {
+            style: Style {
+                flex_direction: FlexDirection::RowReverse,
+                align_items: AlignItems::FlexEnd,
+                size: Size::new(Val::Percent(100.), Val::Percent(100.)),
+                ..default()
             },
+            color: Color::NONE.into(),
             ..default()
         })
-        // for our image asset (no need to set the handle in SpriteBundle)
-        .insert(HandleFromPath::<Image>::from(
-            "image/dating/spinderella.png",
-        ))
-        // dont forget to mark for export
+        .with_children(|parent| {
+            parent
+                .spawn_bundle(NodeBundle {
+                    style: Style {
+                        flex_direction: FlexDirection::ColumnReverse,
+                        align_items: AlignItems::FlexStart,
+                        ..default()
+                    },
+                    color: Color::rgb(0.2, 0., 0.).into(),
+                    ..default()
+                })
+                .with_children(|parent| {
+                    parent
+                        .spawn_bundle(TextBundle {
+                            text: Text::from_section(
+                                "Spider Core",
+                                TextStyle {
+                                    font_size: 24.,
+                                    ..default()
+                                },
+                            ),
+                            ..default()
+                        })
+                        .insert(SidebarName)
+                        .insert(EzSceneExport);
+
+                    let text_style = TextStyle {
+                        font_size: 18.,
+                        ..default()
+                    };
+
+                    parent
+                        .spawn_bundle(TextBundle {
+                            text: Text::from_section("Max Health: 4", text_style.clone()),
+                            ..default()
+                        })
+                        .insert(SidebarHealth)
+                        .insert(EzSceneExport);
+
+                    parent
+                        .spawn_bundle(TextBundle {
+                            text: Text::from_section("Damage: 1 Adjacent", text_style.clone()),
+                            ..default()
+                        })
+                        .insert(SidebarDamage)
+                        .insert(EzSceneExport);
+
+                    parent
+                        .spawn_bundle(TextBundle {
+                            text: Text::from_section("Speed: 0", text_style),
+                            ..default()
+                        })
+                        .insert(SidebarSpeed)
+                        .insert(EzSceneExport);
+                })
+                .insert(EzSceneExport);
+        })
         .insert(EzSceneExport);
+    // // have fun!
+    // commands
+    //     .spawn_bundle(SpriteBundle {
+    //         sprite: Sprite {
+    //             color: Color::PINK,
+    //             ..Default::default()
+    //         },
+    //         ..default()
+    //     })
+    //     // for our image asset (no need to set the handle in SpriteBundle)
+    //     .insert(HandleFromPath::<Image>::from(
+    //         "image/dating/spinderella.png",
+    //     ))
+    //     // dont forget to mark for export
+    //     .insert(EzSceneExport);
 }
 
 /// Send an event of this type to trigger a scene export

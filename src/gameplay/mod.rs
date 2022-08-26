@@ -147,6 +147,12 @@ impl Plugin for GameplayPlugin {
                 handle_unselect_action
                     .run_in_state(AppState::Game)
                     .run_in_state(Turn::goodie()),
+            )
+            .init_resource::<HoveredInsectPart>()
+            .add_system(
+                update_hovered_insect_part
+                    .run_in_state(AppState::Game)
+                    .after("update_cursor_pos"),
             );
 
         app.add_loopless_state(Turn::goodie())
@@ -1110,4 +1116,25 @@ pub fn replenish_move_cap(
             }
         }
     }
+}
+
+// This `InsectPartKind` gets shown on the sidebar
+#[derive(Default, Deref, DerefMut)]
+pub struct HoveredInsectPart(pub Option<InsectPartKind>);
+
+fn update_hovered_insect_part(
+    insects: Query<(&InsectBody, &UnitPos)>,
+    cursor_pos: Res<CursorTilePos>,
+    mut hovered_insect_part: ResMut<HoveredInsectPart>,
+) {
+    **hovered_insect_part = insects.iter().find_map(|(body, pos)| {
+        let part_pos = cursor_pos.pos - **pos;
+        if part_pos.x < 0 || part_pos.y < 0 {
+            return None;
+        }
+
+        let part_pos = part_pos.as_uvec2();
+        body.get_part((part_pos.x, part_pos.y))
+            .map(|part| part.kind)
+    });
 }
