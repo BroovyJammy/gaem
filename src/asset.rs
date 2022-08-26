@@ -44,11 +44,11 @@ impl Plugin for AssetsPlugin {
 
         // workaround cuz scenes dont support asset handles properly
         app.register_type::<HandleFromPath<Image>>();
-        app.add_system(setup_handle_from_path::<Image>);
+        app.add_system_to_stage(CoreStage::PreUpdate, setup_handle_from_path::<Image>);
         app.register_type::<HandleFromPath<Font>>();
-        app.add_system(setup_handle_from_path::<Font>);
+        app.add_system_to_stage(CoreStage::PreUpdate, setup_handle_from_path::<Font>);
         app.register_type::<HandleFromPath<DynamicScene>>();
-        app.add_system(setup_handle_from_path::<DynamicScene>);
+        app.add_system_to_stage(CoreStage::PreUpdate, setup_handle_from_path::<DynamicScene>);
         // … add others if needed
     }
 }
