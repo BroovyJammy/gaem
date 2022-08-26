@@ -90,7 +90,7 @@ pub fn change_selected_unit(
     mut unit_to_combine: ResMut<UnitToCombine>,
     current_units: Res<CurrentUnits>,
 ) {
-    const MAX_UNITS: u8 = 2;
+    const MAX_UNITS: u8 = 4;
 
     let input = actioners.single();
     if input.just_pressed(Action::MoveSelection) {

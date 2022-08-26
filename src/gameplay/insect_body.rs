@@ -118,6 +118,7 @@ impl InsectBody {
             .iter()
             .map(|part| stats[part.kind].move_bonus)
             .sum::<u32>()
+            + 1
     }
 
     pub fn get_part(&self, local_tile: (u32, u32)) -> Option<&InsectPart> {
