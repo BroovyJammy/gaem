@@ -1,11 +1,11 @@
 title = "iyes finds god"
 
 [[spawn_scene]]
-t_sec = 2.0
+t_sec = 0.1
 name = "test"
 
 [[despawn_scene]]
-t_sec = 3.0
+t_sec = 20.0
 name = "test"
 
 [[dialogue]]
