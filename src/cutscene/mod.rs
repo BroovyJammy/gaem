@@ -1,4 +1,4 @@
-use bevy::utils::FloatOrd;
+use bevy::{utils::FloatOrd, render::camera::ScalingMode};
 
 use crate::{
     asset::{CutsceneAssets, UiScenes},
@@ -14,6 +14,8 @@ impl Plugin for CutscenePlugin {
         app.add_system(update_dialogue_box.run_in_state(AppState::PlayCutscene));
         app.add_enter_system(AppState::PlayCutscene, init_cutscene);
         app.add_enter_system(AppState::PlayCutscene, setup_dialogue_box);
+        app.add_enter_system(AppState::PlayCutscene, camera_projection_enter);
+        app.add_exit_system(AppState::PlayCutscene, camera_projection_exit);
         app.add_exit_system(AppState::PlayCutscene, cleanup_cutscene);
         app.add_exit_system(AppState::PlayCutscene, despawn_with::<DialogueBox>);
         app.add_exit_system(
@@ -313,4 +315,20 @@ fn update_dialogue_box(
             .id();
         commands.entity(e).push_children(&[name, text]);
     }
+}
+
+fn camera_projection_enter(
+    // assume there is only one camera
+    mut q: Query<&mut OrthographicProjection>,
+) {
+    let mut proj = q.single_mut();
+    proj.scaling_mode = ScalingMode::FixedVertical(100.0);
+}
+
+fn camera_projection_exit(
+    // assume there is only one camera
+    mut q: Query<&mut OrthographicProjection>,
+) {
+    let mut proj = q.single_mut();
+    proj.scaling_mode = ScalingMode::WindowSize;
 }
