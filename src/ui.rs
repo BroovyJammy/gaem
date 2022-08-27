@@ -258,7 +258,7 @@ fn spawn_sidebar(mut commands: Commands) {
                             text: Text::from_section(
                                 "Spider Core",
                                 TextStyle {
-                                    font_size: 24.,
+                                    font_size: 36.,
                                     ..default()
                                 },
                             ),
@@ -267,7 +267,7 @@ fn spawn_sidebar(mut commands: Commands) {
                         .insert(SidebarName);
 
                     let text_style = TextStyle {
-                        font_size: 18.,
+                        font_size: 27.,
                         ..default()
                     };
 
