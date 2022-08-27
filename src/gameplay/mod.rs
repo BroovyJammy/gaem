@@ -608,11 +608,8 @@ fn handle_unselect_action(
     mut commands: Commands,
     actioners: Query<&ActionState<Action>>,
     selected_unit: Res<SelectedUnit>,
-    units: Query<&MoveTo, Without<Ghost>>,
 ) {
     if actioners.single().just_pressed(Action::Unselect) {
-        let &MoveTo(ghost_entity) = units.get(selected_unit.unit).unwrap();
-        commands.entity(ghost_entity).despawn_recursive();
         commands.entity(selected_unit.unit).remove::<MoveTo>();
         commands.remove_resource::<SelectedUnit>();
     }
