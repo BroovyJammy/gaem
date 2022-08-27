@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use iyes_scene_tools::*;
 
+#[allow(unused_imports)]
 use crate::{
     asset::HandleFromPath,
     prelude::*,

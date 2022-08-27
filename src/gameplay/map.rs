@@ -1,6 +1,3 @@
-use noise::{Add, Constant, Fbm, NoiseFn, Power, Seedable};
-use rand::Rng;
-
 use crate::asset::{MapAssets, Terrain};
 use crate::prelude::*;
 
@@ -84,31 +81,31 @@ pub fn init_map(
         y: tile_size.y,
     };
 
-    struct EdgeWall(UVec2);
+    // struct EdgeWall(UVec2);
 
-    impl NoiseFn<[f64; 2]> for EdgeWall {
-        fn get(&self, mut point: [f64; 2]) -> f64 {
-            for dim in &mut point {
-                if *dim > (self.0.x / 2) as f64 {
-                    *dim = self.0.x as f64 - *dim;
-                }
-            }
+    // impl NoiseFn<[f64; 2]> for EdgeWall {
+    //     fn get(&self, mut point: [f64; 2]) -> f64 {
+    //         for dim in &mut point {
+    //             if *dim > (self.0.x / 2) as f64 {
+    //                 *dim = self.0.x as f64 - *dim;
+    //             }
+    //         }
 
-            (1. - (point[0].min(point[1]) / (self.0.x / 2) as f64)) * 1.1
-        }
-    }
+    //         (1. - (point[0].min(point[1]) / (self.0.x / 2) as f64)) * 1.1
+    //     }
+    // }
 
-    let mut fbm = Fbm::new();
-    fbm.frequency = 0.1;
-    let fbm: &dyn NoiseFn<[f64; 2]> = &fbm.set_seed(rand::thread_rng().gen());
-    let constant = Constant::new(-0.3);
-    let add = Add::new(fbm, &constant);
+    // let mut fbm = Fbm::new();
+    // fbm.frequency = 0.1;
+    // let fbm: &dyn NoiseFn<[f64; 2]> = &fbm.set_seed(rand::thread_rng().gen());
+    // let constant = Constant::new(-0.3);
+    // let add = Add::new(fbm, &constant);
 
-    let constant = Constant::new(8.);
-    let stupid_rustc = EdgeWall(UVec2::new(map_size.x, map_size.y));
-    let power = Power::new(&stupid_rustc, &constant);
+    // let constant = Constant::new(8.);
+    // let stupid_rustc = EdgeWall(UVec2::new(map_size.x, map_size.y));
+    // let power = Power::new(&stupid_rustc, &constant);
 
-    let noise = Add::new(&add, &power);
+    // let noise = Add::new(&add, &power);
 
     let mut layer_to_map = LayerToMap(HashMap::new());
     for layer in [Layer::Select, Layer::Movement, Layer::Terrain] {

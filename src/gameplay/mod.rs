@@ -8,7 +8,7 @@ use bevy::ecs::system::SystemParam;
 use bevy::utils::{HashSet, StableHashMap};
 use leafwing_input_manager::user_input::InputKind;
 use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
+use rand::{thread_rng, Rng, SeedableRng};
 
 pub mod insect_body;
 use insect_body::{spawn_insect, UpdateBody};
@@ -195,6 +195,11 @@ impl Plugin for GameplayPlugin {
             AppState::InsectCombiner,
             insect_combiner::cleanup_insect_combiner,
         );
+
+        app.init_resource::<Age>()
+            .add_enter_system(Turn::goodie(), pass_time)
+            .add_enter_system(Turn::baddie(), pass_time)
+            .add_enter_system(AppState::Game, reset_time);
     }
 }
 
@@ -967,15 +972,32 @@ fn move_enemy_unit(
     }
 }
 
+#[derive(Default, Deref, DerefMut)]
+struct Age(u32);
+
+// Increments on both goodie and baddie turn
+fn pass_time(mut age: ResMut<Age>) {
+    **age += 1;
+    // Yet another year, huh
+    // Time really flies
+}
+
+fn reset_time(mut age: ResMut<Age>) {
+    // Time travel!
+    **age = 0;
+}
+
 fn attack(
     attacking_team: Team,
 ) -> impl Fn(
     Commands,
     Query<(Entity, &UnitPos, &mut InsectBody, &Team)>,
     Res<BodyParts>,
+    Res<Age>,
     ResMut<LevelGameplayInfo>,
 ) {
-    move |mut commands, mut units, stats, mut level_gameplay_info| {
+    move |mut commands, mut units, stats, age, mut level_gameplay_info| {
+        let mut rng = thread_rng();
         let mut attacks = Vec::default();
 
         // avoid using `iter_combinations` because it wont yield both `(enemy, player)` and `(player, enemy)`
@@ -986,6 +1008,11 @@ fn attack(
                 }
 
                 for attacker_part in attacker_body.parts.iter() {
+                    // It is obviously illegal to deal random damage to someone under 40
+                    if (**age as f32 - 45.) * rng.gen::<f32>() > 5. {
+                        attacks.push((attacker, attacker_part.position, 1));
+                    }
+
                     let damage = stats[attacker_part.kind].damage;
 
                     if damage == 0 {
