@@ -217,6 +217,11 @@ impl Plugin for GameplayPlugin {
             .add_enter_system(Turn::input_goodie(), pass_time)
             .add_enter_system(Turn::input_baddie(), pass_time)
             .add_enter_system(AppState::Game, reset_time);
+        app.add_system(
+            despawn_cursor_ghost
+                .run_in_state(Turn::input_goodie())
+                .run_if_resource_removed::<SelectedUnit>(),
+        );
     }
 }
 
@@ -399,7 +404,7 @@ fn insert_units(
 
     let player_units = match player_units {
         None => {
-            let player_units = (0..2)
+            let player_units = (0..1)
                 .map(|_| {
                     let seed = seeds.pop().unwrap_or_else(|| rand::thread_rng().gen());
                     debug!("seed: {}", seed);
@@ -474,8 +479,8 @@ fn handle_select_action(
         ),
         Without<Ghost>,
     >,
-    mut ghosts: Query<&mut UnitPos, With<Ghost>>,
-    move_tos: Query<&MoveTo>,
+    ghosts: Query<&UnitPos, (With<Ghost>, Without<CursorGhost>)>,
+    cursor_ghost: Query<Entity, With<CursorGhost>>,
     terrain_info: TerrainInfo<'_, '_>,
 ) {
     if !actioners.single().just_pressed(Action::Select) {
@@ -528,11 +533,12 @@ fn handle_select_action(
             && move_unit_to.y >= 0
             && moveable_to_tiles.contains(&move_unit_to.as_uvec2())
         {
-            if let Ok(&MoveTo(ghost_entity)) = move_tos.get(selected_unit.unit) {
-                let mut unit_pos = ghosts.get_mut(ghost_entity).unwrap();
-                unit_pos.0 = move_unit_to;
-                commands.remove_resource::<SelectedUnit>();
-            }
+            let ghost_entity = cursor_ghost.single();
+            commands.entity(ghost_entity).remove::<CursorGhost>();
+            commands
+                .entity(selected_unit.unit)
+                .insert(MoveTo(ghost_entity));
+            commands.remove_resource::<SelectedUnit>();
         }
     }
 }
@@ -602,11 +608,8 @@ fn handle_unselect_action(
     mut commands: Commands,
     actioners: Query<&ActionState<Action>>,
     selected_unit: Res<SelectedUnit>,
-    units: Query<&MoveTo, Without<Ghost>>,
 ) {
     if actioners.single().just_pressed(Action::Unselect) {
-        let &MoveTo(ghost_entity) = units.get(selected_unit.unit).unwrap();
-        commands.entity(ghost_entity).despawn_recursive();
         commands.entity(selected_unit.unit).remove::<MoveTo>();
         commands.remove_resource::<SelectedUnit>();
     }
@@ -670,20 +673,40 @@ fn highlight_movable_tiles(
 
 #[derive(Component)]
 pub struct Ghost(InsectBody);
+#[derive(Component)]
+pub struct CursorGhost;
+
+fn despawn_cursor_ghost(
+    mut commands: Commands<'_, '_>,
+    cursor_ghost: Query<Entity, With<CursorGhost>>,
+) {
+    if let Ok(cursor_ghost) = cursor_ghost.get_single() {
+        commands.entity(cursor_ghost).despawn_recursive();
+    }
+}
 
 // A ghost is the unit that shows under your cursor when you have a unit selected
 // 👻
 fn spawn_ghost_for_selected_unit(
     mut commands: Commands,
-    units: Query<(&UnitPos, &InsectBody, Option<With<MoveTo>>)>,
+    units: Query<(&UnitPos, &InsectBody, Option<&MoveTo>)>,
     selected_unit: Res<SelectedUnit>,
+    existing_ghost: Query<Entity, With<CursorGhost>>,
 ) {
     if selected_unit.is_changed() {
+        if let Ok(cursor_ghost) = existing_ghost.get_single() {
+            commands.entity(cursor_ghost).despawn_recursive();
+        }
+
         let (pos, body, opt_move_to) = units.get(selected_unit.unit).unwrap();
-        if opt_move_to.is_none() {
-            let e = spawn_ghost(&mut commands, *pos, body.clone(), Team::Goodie);
-            debug!("e = {:?}", e);
-            commands.entity(selected_unit.unit).insert(MoveTo(e));
+        match opt_move_to {
+            None => {
+                spawn_ghost(&mut commands, *pos, body.clone(), Team::Goodie, true);
+            }
+            Some(ghost_entity) => {
+                commands.entity(ghost_entity.0).insert(CursorGhost);
+                commands.entity(selected_unit.unit).remove::<MoveTo>();
+            }
         }
     }
 }
@@ -693,9 +716,10 @@ fn spawn_ghost(
     at: UnitPos,
     body: InsectBody,
     team: Team,
+    is_cursor: bool,
 ) -> Entity {
-    commands
-        .spawn()
+    let mut entity_builder = commands.spawn();
+    entity_builder
         .insert_bundle(TransformBundle::default())
         .insert(at)
         .insert(UpdateBody)
@@ -705,28 +729,22 @@ fn spawn_ghost(
             body_part: StableHashMap::with_hasher(default()),
         })
         .insert_bundle(VisibilityBundle::default())
-        .insert(Ghost(body))
-        .id()
+        .insert(Ghost(body));
+    if is_cursor {
+        entity_builder.insert(CursorGhost);
+    }
+    entity_builder.id()
 }
 
 // Causes the ghost to haunt the cursor
 fn move_ghost(
-    units: Query<&MoveTo, (With<InsectBody>, With<UnitPos>)>,
-    mut ghosts: Query<&mut UnitPos, With<Ghost>>,
+    mut ghosts: Query<&mut UnitPos, With<CursorGhost>>,
     selected_unit: Res<SelectedUnit>,
     cursor_pos: Res<CursorTilePos>,
 ) {
-    if !cursor_pos.is_changed() {
-        return;
+    if let Ok(mut pos) = ghosts.get_single_mut() {
+        **pos = cursor_pos.pos - selected_unit.at_local_pos.as_ivec2();
     }
-
-    match units.get(selected_unit.unit) {
-        Ok(&MoveTo(ghost_entity)) => {
-            **ghosts.get_mut(ghost_entity).unwrap() =
-                cursor_pos.pos - selected_unit.at_local_pos.as_ivec2();
-        }
-        Err(_) => return,
-    };
 }
 
 fn remove_movement_indicator(mut movement_tiles: Query<&mut TileTexture, With<MovementTile>>) {
@@ -890,8 +908,16 @@ pub fn highlight_hovered_tile(
     }
 }
 
-fn end_turn(mut commands: Commands, actioners: Query<&ActionState<Action>>) {
+fn end_turn(
+    mut commands: Commands,
+    actioners: Query<&ActionState<Action>>,
+    cursor_ghost: Query<Entity, With<CursorGhost>>,
+) {
     if actioners.single().just_pressed(Action::EndTurn) {
+        if let Ok(cursor_ghost) = cursor_ghost.get_single() {
+            commands.entity(cursor_ghost).despawn_recursive();
+        }
+
         commands.remove_resource::<SelectedUnit>();
         commands.insert_resource(NextState(Turn::animate_goodie()));
     }
@@ -1118,7 +1144,13 @@ fn move_enemy_unit(
             debug!("no movable to tiles");
             unit_pos.0
         };
-        let ghost = spawn_ghost(&mut commands, UnitPos(pos), body.clone(), Team::Baddie);
+        let ghost = spawn_ghost(
+            &mut commands,
+            UnitPos(pos),
+            body.clone(),
+            Team::Baddie,
+            false,
+        );
         commands
             .entity(unit)
             .remove::<MoveMe>()
