@@ -1346,7 +1346,9 @@ fn attack(
                 );
                 level_gameplay_info.insert_insect_split(severee, std::iter::once(insect_id));
             }
-            level_gameplay_info.set_last_killed(severee);
+            if *units.get(severee).unwrap().3 == Team::Baddie {
+                level_gameplay_info.set_last_killed(severee);
+            }
             commands.entity(severee).despawn_recursive();
         }
 
