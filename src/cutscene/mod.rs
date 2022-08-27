@@ -1,4 +1,4 @@
-use bevy::{utils::FloatOrd, render::camera::ScalingMode};
+use bevy::{render::camera::ScalingMode, utils::FloatOrd};
 
 use crate::{
     asset::{CutsceneAssets, UiScenes},
@@ -322,7 +322,11 @@ fn camera_projection_enter(
     mut q: Query<&mut OrthographicProjection>,
 ) {
     let mut proj = q.single_mut();
-    proj.scaling_mode = ScalingMode::FixedVertical(100.0);
+    proj.scaling_mode = ScalingMode::None;
+    proj.left = -400.;
+    proj.right = 400.;
+    proj.top = 300.;
+    proj.bottom = -300.;
 }
 
 fn camera_projection_exit(

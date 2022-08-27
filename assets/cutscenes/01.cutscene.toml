@@ -4,25 +4,21 @@ title = "iyes finds god"
 t_sec = 0.1
 name = "test"
 
-[[despawn_scene]]
-t_sec = 20.0
-name = "test"
+[[dialogue]]
+mode = { WaitSeconds = 2.0 }
+
+name = "mario"
+text = "oh daisy"
 
 [[dialogue]]
-mode = { WaitSeconds = 4.0 }
+mode = { WaitSeconds = 2.0 }
 
-name = "god"
-text = "do you even know who i am?!"
-
-[[dialogue]]
-mode = { WaitSeconds = 5.0 }
-
-name = "eyce"
-text = "no? im just an ice cube with eyes"
+name = "daisy"
+text = "mario"
 
 [[dialogue]]
 mode = { WaitSeconds = 2.0 }
 transition = { AppState = "Game" }
 
-name = "spidre"
-text = "*spin* *spin* *spin*"
+name = "mario"
+text = "oh daisy"
