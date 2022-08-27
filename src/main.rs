@@ -118,7 +118,14 @@ fn main() {
             size_y: 36,
             post_cutscene: Some("iyes finds god".into()),
             player_spawn_points: vec![UVec2::new(7, 12), UVec2::new(22, 12)],
-            enemy_spawn_points: vec![(UVec2::new(26, 21), 2), (UVec2::new(17, 21), 1)],
+            enemy_spawn_points: vec![(UVec2::new(5, 30), 1), (UVec2::new(25, 30), 1)],
+        },
+        gameplay::Level {
+            size_x: 36,
+            size_y: 36,
+            post_cutscene: Some("iyes finds god".into()),
+            player_spawn_points: vec![UVec2::new(7, 12), UVec2::new(22, 12), UVec2::new(7, 22)],
+            enemy_spawn_points: vec![(UVec2::new(26, 21), 2)],
         },
         gameplay::Level {
             size_x: 52,
@@ -142,7 +149,7 @@ fn main() {
         gameplay::Level {
             size_x: 52,
             size_y: 52,
-            post_cutscene: None,
+            post_cutscene: Some("iyes finds god".into()),
             player_spawn_points: vec![
                 UVec2::new(7, 12),
                 UVec2::new(17, 12),
@@ -159,6 +166,47 @@ fn main() {
                 (UVec2::new(32, 37), 1),
                 (UVec2::new(27, 37), 1),
             ],
+        },
+        gameplay::Level {
+            size_x: 52,
+            size_y: 52,
+            post_cutscene: Some("iyes finds god".into()),
+            player_spawn_points: vec![
+                UVec2::new(7, 12),
+                UVec2::new(17, 12),
+                UVec2::new(27, 12),
+                UVec2::new(37, 12),
+            ],
+            enemy_spawn_points: vec![
+                (UVec2::new(42, 42), 2),
+                (UVec2::new(32, 42), 2),
+                (UVec2::new(22, 42), 2),
+                (UVec2::new(12, 37), 2),
+            ],
+        },
+        gameplay::Level {
+            size_x: 52,
+            size_y: 52,
+            post_cutscene: Some("iyes finds god".into()),
+            player_spawn_points: vec![
+                UVec2::new(7, 12),
+                UVec2::new(17, 12),
+                UVec2::new(27, 12),
+                UVec2::new(37, 12),
+            ],
+            enemy_spawn_points: vec![(UVec2::new(42, 42), 3), (UVec2::new(22, 42), 3)],
+        },
+        gameplay::Level {
+            size_x: 52,
+            size_y: 52,
+            post_cutscene: None,
+            player_spawn_points: vec![
+                UVec2::new(7, 12),
+                UVec2::new(17, 12),
+                UVec2::new(27, 12),
+                UVec2::new(37, 12),
+            ],
+            enemy_spawn_points: vec![(UVec2::new(26, 26), 5)],
         },
     ]));
 
