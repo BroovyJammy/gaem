@@ -4,46 +4,62 @@ use bevy::utils::{hashbrown::hash_map::Entry, StableHashMap, StableHashSet};
 
 use crate::{asset::TerrainDescriptor, prelude::*};
 
-use super::{insect_body::InsectBody, map::TerrainKind, MoveCap, TerrainInfo, UnitPos};
+use super::{insect_body::InsectBody, map::TerrainKind, MoveCap, Team, TerrainInfo, UnitPos};
+
+#[derive(Copy, Clone)]
+pub enum CollideWith {
+    Team(Team),
+    All,
+}
 
 pub fn get_movable_to_tiles<'a, I>(
     entity: Entity,
     starting_pos: IVec2,
     body: &InsectBody,
+    collide_with: CollideWith,
     move_cap: MoveCap,
     units: impl Fn() -> I + Copy + 'a,
     terrain_info: &TerrainInfo<'_, '_>,
 ) -> StableHashSet<UVec2>
 where
-    I: Iterator<Item = (Entity, &'a UnitPos, &'a InsectBody)>,
+    I: Iterator<Item = (Entity, &'a UnitPos, &'a InsectBody, &'a Team)>,
 {
     let terrain_map = terrain_info.get_terrain_map();
-    get_movable_through_tiles(entity, starting_pos, body, move_cap, units, terrain_info)
-        .into_iter()
-        .filter(|(pos, _)| {
-            is_place_valid_to_be(
-                true,
-                entity,
-                body,
-                pos.as_ivec2(),
-                units(),
-                terrain_info.get_terrain_descriptor(terrain_map),
-            )
-        })
-        .map(|(pos, _)| pos)
-        .collect()
+    get_movable_through_tiles(
+        entity,
+        starting_pos,
+        body,
+        collide_with,
+        move_cap,
+        units,
+        terrain_info,
+    )
+    .into_iter()
+    .filter(|(pos, _)| {
+        is_place_valid_to_be(
+            CollideWith::All,
+            entity,
+            body,
+            pos.as_ivec2(),
+            units(),
+            terrain_info.get_terrain_descriptor(terrain_map),
+        )
+    })
+    .map(|(pos, _)| pos)
+    .collect()
 }
 
 pub fn get_movable_through_tiles<'a, I>(
     entity: Entity,
     starting_pos: IVec2,
     body: &InsectBody,
+    collide_with: CollideWith,
     move_cap: MoveCap,
     units: impl Fn() -> I + 'a,
     terrain_info: &TerrainInfo<'_, '_>,
 ) -> StableHashMap<UVec2, u64>
 where
-    I: Iterator<Item = (Entity, &'a UnitPos, &'a InsectBody)>,
+    I: Iterator<Item = (Entity, &'a UnitPos, &'a InsectBody, &'a Team)>,
 {
     assert!(starting_pos.x >= 0 && starting_pos.y >= 0);
     let starting_pos = starting_pos.as_uvec2();
@@ -86,7 +102,7 @@ where
             // then its valid for the insect to be positioned there so this would be redundant.
             if matches!(&entry, Entry::Vacant(_))
                 && !is_place_valid_to_be(
-                    false,
+                    collide_with,
                     entity,
                     body,
                     pos.as_ivec2(),
@@ -106,11 +122,11 @@ where
 }
 
 pub fn is_place_valid_to_be<'a, 'b>(
-    check_unit_overlap: bool,
+    collide_with: CollideWith,
     mover: Entity,
     mover_body: &InsectBody,
     place: IVec2,
-    units: impl Iterator<Item = (Entity, &'a UnitPos, &'a InsectBody)>,
+    units: impl Iterator<Item = (Entity, &'a UnitPos, &'a InsectBody, &'a Team)>,
     terrain_info: impl Fn(UnitPos) -> Option<(TerrainKind, &'b TerrainDescriptor)> + 'b,
 ) -> bool {
     let overlaps_terrain = mover_body
@@ -129,12 +145,16 @@ pub fn is_place_valid_to_be<'a, 'b>(
     if overlaps_terrain {
         return false;
     }
-    let overlaps_units = match check_unit_overlap {
-        true => units
+
+    let overlaps_units = match collide_with {
+        CollideWith::Team(team) => units
             .into_iter()
-            .filter(|&(e, _, _)| e != mover)
-            .any(|(_, pos, body)| body.intersects(*pos, mover_body, UnitPos(place))),
-        false => false,
+            .filter(|&(e, _, _, other_team)| e != mover && team == *other_team)
+            .any(|(_, pos, body, _)| body.intersects(*pos, mover_body, UnitPos(place))),
+        CollideWith::All => units
+            .into_iter()
+            .filter(|&(e, _, _, _)| e != mover)
+            .any(|(_, pos, body, _)| body.intersects(*pos, mover_body, UnitPos(place))),
     };
     if overlaps_units {
         return false;

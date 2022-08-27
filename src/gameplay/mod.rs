@@ -19,6 +19,7 @@ use map::{
 
 use self::insect_body::InsectRenderEntities;
 pub mod pathy;
+use pathy::CollideWith;
 
 pub mod insect_combiner;
 
@@ -249,6 +250,13 @@ impl Team {
             Team::Baddie => Color::rgb(0.3, 1., 1.),
         }
     }
+
+    fn collides_with(self) -> CollideWith {
+        match self {
+            Team::Goodie => CollideWith::Team(Team::Baddie),
+            Team::Baddie => CollideWith::Team(Team::Goodie),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deref, DerefMut, Eq, Hash, PartialEq)]
@@ -443,15 +451,16 @@ fn handle_select_action(
     }
 
     if let Some(selected_unit) = selected_unit {
-        let (_, move_unit_from, selected_body, _, move_cap) =
+        let (_, move_unit_from, selected_body, team, move_cap) =
             units.get(selected_unit.unit).unwrap();
 
         let moveable_to_tiles = pathy::get_movable_to_tiles(
             selected_unit.unit,
             move_unit_from.0,
             selected_body,
+            team.collides_with(),
             *move_cap,
-            || units.iter().map(|(a, b, c, _, _)| (a, b, c)),
+            || units.iter().map(|(a, b, c, d, _)| (a, b, c, d)),
             &terrain_info,
         );
 
@@ -477,7 +486,7 @@ fn handle_unselect_action(mut commands: Commands, actioners: Query<&ActionState<
 }
 
 fn highlight_movable_tiles(
-    units: Query<(Entity, &UnitPos, &InsectBody, &MoveCap)>,
+    units: Query<(Entity, &UnitPos, &InsectBody, &MoveCap, &Team)>,
     mut movement_tiles: Query<(&mut TileTexture, &TilePos), With<MovementTile>>,
     selected_unit: Option<Res<SelectedUnit>>,
     terrain_info: TerrainInfo<'_, '_>,
@@ -491,13 +500,14 @@ fn highlight_movable_tiles(
         *texture = Select::Inactive.into();
     }
 
-    let (_, unit_pos, body, move_cap) = units.get(selected_unit.unit).unwrap();
+    let (_, unit_pos, body, move_cap, team) = units.get(selected_unit.unit).unwrap();
     let moveable_to_tiles = pathy::get_movable_to_tiles(
         selected_unit.unit,
         unit_pos.0,
         body,
+        team.collides_with(),
         *move_cap,
-        || units.iter().map(|(a, b, c, _)| (a, b, c)),
+        || units.iter().map(|(a, b, c, _, d)| (a, b, c, d)),
         &terrain_info,
     );
     for &tile in moveable_to_tiles.iter() {
@@ -843,11 +853,15 @@ fn move_enemy_unit(
             unit,
             unit_pos.0,
             body,
+            Team::Baddie.collides_with(),
             *move_cap,
             || {
-                nearby_units
-                    .iter()
-                    .map(|unit| units.get(*unit).map(|(a, b, c, _, _)| (a, b, c)).unwrap())
+                nearby_units.iter().map(|unit| {
+                    units
+                        .get(*unit)
+                        .map(|(a, b, c, _, d)| (a, b, c, d))
+                        .unwrap()
+                })
             },
             &terrain_info,
         );
