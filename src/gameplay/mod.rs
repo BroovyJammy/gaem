@@ -399,7 +399,7 @@ fn insert_units(
 
     let player_units = match player_units {
         None => {
-            let player_units = (0..2)
+            let player_units = (0..1)
                 .map(|_| {
                     let seed = seeds.pop().unwrap_or_else(|| rand::thread_rng().gen());
                     debug!("seed: {}", seed);
