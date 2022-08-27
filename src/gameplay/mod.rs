@@ -278,6 +278,7 @@ struct MoveMe;
 
 #[derive(Actionlike, PartialEq, Eq, Clone, Copy, Hash, Debug)]
 pub enum Action {
+    SkipLevel,
     MoveSelection,
     Select,
     Unselect,
@@ -636,10 +637,14 @@ pub fn make_action_manager() -> InputManagerBundle<Action> {
             .insert(GamepadButtonType::South, Action::Select)
             .insert(MouseButton::Right, Action::Unselect)
             .insert(KeyCode::Escape, Action::Unselect)
-            .insert(GamepadButtonType::West, Action::Unselect)
+            .insert(KeyCode::Q, Action::Unselect)
+            .insert(GamepadButtonType::East, Action::Unselect)
             .insert(KeyCode::Return, Action::EndTurn)
             .insert(GamepadButtonType::Select, Action::EndTurn)
             .insert(GamepadButtonType::North, Action::EndTurn)
+            // we really need to not ship with this still existing
+            .insert(GamepadButtonType::Select, Action::SkipLevel)
+            .insert(KeyCode::Z, Action::SkipLevel)
             .build(),
     }
 }
@@ -771,7 +776,14 @@ fn lose_win_conditions(
     mut commands: Commands<'_, '_>,
     units: Query<(Entity, &Team)>,
     mut current_level: ResMut<CurrentLevel>,
+    mut _temp: Query<&ActionState<Action>>,
 ) {
+    if _temp.single().just_pressed(Action::SkipLevel) {
+        commands.insert_resource(UnitToCombine(0));
+        commands.insert_resource(NextState(AppState::PlayCutscene));
+        current_level.0 += 1;
+    }
+
     if !units.iter().any(|(_, team)| matches!(team, Team::Baddie)) {
         commands.insert_resource(UnitToCombine(0));
         commands.insert_resource(NextState(AppState::InsectCombiner));

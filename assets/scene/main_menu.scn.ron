@@ -341,7 +341,7 @@
       },
       {
         "gaem::ui::butts::ButtTransition<gaem::AppState>": (
-          state: Game,
+          state: PlayCutscene,
         ),
       },
     ],

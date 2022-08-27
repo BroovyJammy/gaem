@@ -2,6 +2,7 @@ use bevy::{render::camera::ScalingMode, utils::FloatOrd};
 
 use crate::{
     asset::{CutsceneAssets, UiScenes},
+    gameplay::Action,
     prelude::*,
     ui::{TextProps, TextPurpose},
 };
@@ -158,12 +159,13 @@ fn cutscene_driver(
     mut player: ResMut<CutscenePlayerState>,
     mut scenespawner: ResMut<SceneSpawner>,
     ass: Res<AssetServer>,
+    actioner: Query<&ActionState<Action>>,
 ) {
     let now = ((time.startup() + time.time_since_startup()) - player.start).as_secs_f32();
     let meta = assets.get(current.handle.as_ref().unwrap()).unwrap();
 
     if let Some(dialogue_entry) = meta.dialogue.get(player.current_dialogue) {
-        let mut transition = false;
+        let mut transition = actioner.single().just_pressed(Action::Select);
         match dialogue_entry.mode {
             DialogueMode::WaitSeconds(secs) => {
                 if now > player.dialogue_start_time + secs {
