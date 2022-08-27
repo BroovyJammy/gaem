@@ -72,6 +72,7 @@ fn main() {
         filter: "info,wgpu_core=warn,wgpu_hal=warn,gaem=info".into(),
         level: bevy::log::Level::INFO,
     });
+    app.insert_resource(ClearColor(Color::rgb(0.2, 0., 0.)));
 
     // bevy
     app.add_plugins(DefaultPlugins);

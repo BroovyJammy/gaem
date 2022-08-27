@@ -1,6 +1,8 @@
+use bevy::ui::FocusPolicy;
+
 use crate::{
     asset::{BodyParts, UiAssets, UiScenes},
-    gameplay::HoveredInsectPart,
+    gameplay::{HoveredInsectPart, SelectedUnit, Turn},
     prelude::*,
 };
 
@@ -24,9 +26,11 @@ impl Plugin for UiPlugin {
         app.add_system(butts_interaction.chain(butts::handle_butt_exit));
         app.add_system(butts_interaction.chain(butts::handle_butt_transition::<AppState>));
         app.add_enter_system(AppState::Game, spawn_sidebar);
-        app.add_exit_system(AppState::Game, despawn_sidebar);
+        app.add_exit_system(AppState::Game, despawn_combat_ui);
         app.add_system(add_sidebar_font.run_not_in_state(AppState::AssetsLoading));
         app.add_system(update_sidebar.run_in_state(AppState::Game));
+        app.add_enter_system(AppState::Game, spawn_end_turn_button);
+        app.add_system(handle_end_turn_button.run_in_state(Turn::input_goodie()));
     }
 }
 
@@ -233,6 +237,7 @@ fn spawn_sidebar(mut commands: Commands) {
     commands
         .spawn_bundle(NodeBundle {
             style: Style {
+                position_type: PositionType::Absolute,
                 flex_direction: FlexDirection::RowReverse,
                 align_items: AlignItems::FlexEnd,
                 size: Size::new(Val::Percent(100.), Val::Percent(100.)),
@@ -249,7 +254,7 @@ fn spawn_sidebar(mut commands: Commands) {
                         align_items: AlignItems::FlexStart,
                         ..default()
                     },
-                    color: Color::rgb(0.2, 0., 0.).into(),
+                    color: Color::rgb(0.4, 0., 0.).into(),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -296,7 +301,10 @@ fn spawn_sidebar(mut commands: Commands) {
         .insert(Sidebar);
 }
 
-fn despawn_sidebar(mut commands: Commands, sidebars: Query<Entity, With<Sidebar>>) {
+fn despawn_combat_ui(
+    mut commands: Commands,
+    sidebars: Query<Entity, Or<(With<Sidebar>, With<EndTurnWrapper>)>>,
+) {
     for sidebar in &sidebars {
         commands.entity(sidebar).despawn_recursive();
     }
@@ -345,6 +353,67 @@ fn update_sidebar(
             }
         } else {
             "".to_string()
+        }
+    }
+}
+
+#[derive(Component)]
+struct EndTurnWrapper;
+
+#[derive(Component)]
+struct EndTurnButton;
+
+fn spawn_end_turn_button(mut commands: Commands, assets: Res<UiAssets>) {
+    commands
+        .spawn_bundle(NodeBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                flex_direction: FlexDirection::RowReverse,
+                align_items: AlignItems::FlexStart,
+                size: Size::new(Val::Percent(100.), Val::Percent(100.)),
+                ..default()
+            },
+            color: Color::NONE.into(),
+            ..default()
+        })
+        .insert(EndTurnWrapper)
+        .with_children(|parent| {
+            parent
+                .spawn_bundle(ButtonBundle {
+                    style: Style {
+                        flex_direction: FlexDirection::ColumnReverse,
+                        align_items: AlignItems::FlexStart,
+                        ..default()
+                    },
+                    color: Color::rgb(0.4, 0., 0.).into(),
+                    ..default()
+                })
+                .with_children(|parent| {
+                    parent.spawn_bundle(TextBundle {
+                        text: Text::from_section(
+                            "END TURN >",
+                            TextStyle {
+                                font_size: 48.,
+                                font: assets.font_bold.clone(),
+                                ..default()
+                            },
+                        ),
+                        focus_policy: FocusPolicy::Pass,
+                        ..default()
+                    });
+                })
+                .insert(EndTurnButton);
+        });
+}
+
+fn handle_end_turn_button(
+    mut commands: Commands,
+    buttons: Query<&Interaction, (With<EndTurnButton>, Changed<Interaction>)>,
+) {
+    for button in &buttons {
+        if let Interaction::Clicked = button {
+            commands.remove_resource::<SelectedUnit>();
+            commands.insert_resource(NextState(Turn::animate_goodie()));
         }
     }
 }

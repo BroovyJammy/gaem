@@ -256,7 +256,7 @@ pub struct PathFromNonGhost(Vec<UVec2>);
 
 // Resource that only exists when a unit is selected
 #[derive(Clone, Copy)]
-struct SelectedUnit {
+pub struct SelectedUnit {
     unit: Entity,
     /// Records which tile `unit` was clicked on at
     at_local_pos: UVec2,
@@ -296,19 +296,19 @@ pub enum Turn {
 }
 
 impl Turn {
-    fn animate_goodie() -> Self {
+    pub fn animate_goodie() -> Self {
         Self::AnimateActions(Team::Goodie)
     }
 
-    fn input_goodie() -> Self {
+    pub fn input_goodie() -> Self {
         Self::InputActions(Team::Goodie)
     }
 
-    fn animate_baddie() -> Self {
+    pub fn animate_baddie() -> Self {
         Self::AnimateActions(Team::Baddie)
     }
 
-    fn input_baddie() -> Self {
+    pub fn input_baddie() -> Self {
         Self::InputActions(Team::Baddie)
     }
 }
