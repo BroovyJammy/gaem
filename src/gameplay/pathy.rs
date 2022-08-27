@@ -4,7 +4,9 @@ use bevy::utils::{hashbrown::hash_map::Entry, StableHashMap, StableHashSet};
 
 use crate::{asset::TerrainDescriptor, prelude::*};
 
-use super::{insect_body::InsectBody, map::TerrainKind, MoveCap, Team, TerrainInfo, UnitPos};
+use super::{
+    insect_body::InsectBody, map::TerrainKind, MoveCap, MoveTo, Team, TerrainInfo, UnitPos,
+};
 
 #[derive(Copy, Clone)]
 pub enum CollideWith {
@@ -12,18 +14,37 @@ pub enum CollideWith {
     All,
 }
 
-pub fn get_movable_to_tiles<'a, I>(
+pub fn get_movable_to_tiles<'a, NonGhosts>(
     entity: Entity,
     starting_pos: IVec2,
     body: &InsectBody,
     collide_with: CollideWith,
     move_cap: MoveCap,
-    units: impl Fn() -> I + Copy + 'a,
+    units: impl Fn() -> NonGhosts + Copy + 'a,
+    ghosts: impl Fn(Entity) -> &'a UnitPos + 'a,
     terrain_info: &TerrainInfo<'_, '_>,
 ) -> StableHashSet<UVec2>
 where
-    I: Iterator<Item = (Entity, &'a UnitPos, &'a InsectBody, &'a Team)>,
+    NonGhosts: Iterator<
+        Item = (
+            Entity,
+            &'a UnitPos,
+            &'a InsectBody,
+            &'a Team,
+            Option<&'a MoveTo>,
+        ),
+    >,
 {
+    let units = || {
+        units().map(|(a, b, c, d, move_to)| match move_to {
+            Some(&MoveTo(ghost)) => {
+                let b = ghosts(ghost);
+                (a, b, c, d)
+            }
+            None => (a, b, c, d),
+        })
+    };
+
     let terrain_map = terrain_info.get_terrain_map();
     get_movable_through_tiles(
         entity,
