@@ -214,8 +214,8 @@ impl Plugin for GameplayPlugin {
         );
 
         app.init_resource::<Age>()
-            .add_enter_system(Turn::goodie(), pass_time)
-            .add_enter_system(Turn::baddie(), pass_time)
+            .add_enter_system(Turn::input_goodie(), pass_time)
+            .add_enter_system(Turn::input_baddie(), pass_time)
             .add_enter_system(AppState::Game, reset_time);
     }
 }
@@ -1154,7 +1154,7 @@ fn attack(
     Res<Age>,
     ResMut<LevelGameplayInfo>,
 ) {
-    move |mut commands, move_tos, mut units, stats, mut level_gameplay_info| {
+    move |mut commands, move_tos, mut units, stats, age, mut level_gameplay_info| {
         let mut rng = thread_rng();
         if move_tos.iter().len() > 0 {
             return;
