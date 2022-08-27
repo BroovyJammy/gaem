@@ -46,6 +46,7 @@ impl LevelGameplayInfo {
     }
 
     pub fn find_root_unsplit_insect_for(&self, mut splitten: Entity) -> InsectBody {
+        debug!("splitten: {:?}", splitten);
         for (entity, _) in &self.generated_enemies {
             debug!("generated_enemy: {:?}", entity);
         }
