@@ -256,7 +256,7 @@ fn spawn_sidebar(mut commands: Commands) {
                     parent
                         .spawn_bundle(TextBundle {
                             text: Text::from_section(
-                                "Spider Core",
+                                "",
                                 TextStyle {
                                     font_size: 36.,
                                     ..default()
@@ -273,21 +273,21 @@ fn spawn_sidebar(mut commands: Commands) {
 
                     parent
                         .spawn_bundle(TextBundle {
-                            text: Text::from_section("Max Health: 4", text_style.clone()),
+                            text: Text::from_section("", text_style.clone()),
                             ..default()
                         })
                         .insert(SidebarHealth);
 
                     parent
                         .spawn_bundle(TextBundle {
-                            text: Text::from_section("Damage: 1 Adjacent", text_style.clone()),
+                            text: Text::from_section("", text_style.clone()),
                             ..default()
                         })
                         .insert(SidebarDamage);
 
                     parent
                         .spawn_bundle(TextBundle {
-                            text: Text::from_section("Speed: 0", text_style),
+                            text: Text::from_section("", text_style),
                             ..default()
                         })
                         .insert(SidebarSpeed);
