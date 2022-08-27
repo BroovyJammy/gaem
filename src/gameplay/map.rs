@@ -119,11 +119,19 @@ pub fn init_map(
         for x in 0..map_size.x {
             for y in 0..map_size.y {
                 let tile_pos = UVec2::new(x, y).into();
-                let terrain_kind = TerrainKind(match noise.get([x as f64, y as f64]) > 0. {
-                    false => 0,
-                    true => 0,
-                    // true => 1,
-                });
+
+                let terrain_kind = TerrainKind(
+                    match x <= 1 || x >= (map_size.x - 2) || y <= 1 || y >= (map_size.y - 2) {
+                        false => 0,
+                        true => 1,
+                    },
+                );
+
+                // let terrain_kind = TerrainKind(match noise.get([x as f64, y as f64]) > 0. {
+                //     false => 0,
+                //     true => 0,
+                //     // true => 1,
+                // });
 
                 let mut tile = commands.spawn_bundle(TileBundle {
                     position: tile_pos,
