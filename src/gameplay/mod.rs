@@ -61,13 +61,13 @@ pub struct GameplayPlugin;
 
 impl Plugin for GameplayPlugin {
     fn build(&self, app: &mut App) {
-        app.add_loopless_state(Turn::goodie());
+        app.add_loopless_state(Turn::input_goodie());
 
         app.add_startup_system(init_global_camera);
         app.add_system(
             highlight_movable_tiles
                 .run_in_state(AppState::Game)
-                .run_in_state(Turn::goodie()),
+                .run_in_state(Turn::input_goodie()),
         );
         app.add_system(
             remove_movement_indicator
@@ -77,22 +77,26 @@ impl Plugin for GameplayPlugin {
         app.add_system(
             spawn_ghost_for_selected_unit
                 .run_in_state(AppState::Game)
-                .run_in_state(Turn::goodie())
+                .run_in_state(Turn::input_goodie())
                 .run_if_resource_exists::<SelectedUnit>(),
         );
         app.add_system(
             move_ghost
                 .run_in_state(AppState::Game)
-                .run_in_state(Turn::goodie())
+                .run_in_state(Turn::input_goodie())
                 .run_if_resource_exists::<SelectedUnit>(),
         );
-        app.add_exit_system(
-            Turn::goodie(),
-            move_units.run_in_state(AppState::Game).label(DespawnGhost),
+        app.add_system(
+            move_units
+                .run_in_state(Turn::animate_goodie())
+                .run_in_state(AppState::Game)
+                .label(DespawnGhost),
         );
-        app.add_exit_system(
-            Turn::baddie(),
-            move_units.run_in_state(AppState::Game).label(DespawnGhost),
+        app.add_system(
+            move_units
+                .run_in_state(Turn::animate_baddie())
+                .run_in_state(AppState::Game)
+                .label(DespawnGhost),
         );
 
         #[derive(SystemLabel)]
@@ -112,7 +116,8 @@ impl Plugin for GameplayPlugin {
             .add_system(
                 sync_unit_pos_with_transform
                     .run_in_state(AppState::Game)
-                    .before(Thingy),
+                    .after(Thingy)
+                    .after(DespawnGhost),
             );
         app.add_event::<ReselectTile>()
             .add_system(
@@ -146,14 +151,15 @@ impl Plugin for GameplayPlugin {
             .add_system(
                 handle_select_action
                     .run_in_state(AppState::Game)
-                    .run_in_state(Turn::goodie())
+                    .run_in_state(Turn::input_goodie())
                     .after("update_cursor_pos"),
             )
             .add_system(
                 handle_unselect_action
                     .run_in_state(AppState::Game)
-                    .run_in_state(Turn::goodie())
-                    .run_if_resource_exists::<SelectedUnit>(),
+                    .run_in_state(Turn::input_goodie())
+                    .run_if_resource_exists::<SelectedUnit>()
+                    .label(DespawnGhost),
             )
             .init_resource::<HoveredInsectPart>()
             .add_system(
@@ -165,22 +171,20 @@ impl Plugin for GameplayPlugin {
         app.add_system(
             end_turn
                 .run_in_state(AppState::Game)
-                .run_in_state(Turn::goodie()),
+                .run_in_state(Turn::input_goodie()),
         )
         .add_system(
             move_enemy_unit
                 .run_in_state(AppState::Game)
-                .run_in_state(Turn::baddie()),
+                .run_in_state(Turn::input_baddie()),
         )
-        .add_exit_system(Turn::goodie(), attack(Team::Goodie))
-        .add_exit_system(Turn::baddie(), attack(Team::Baddie))
-        .add_exit_system(Turn::goodie(), replenish_move_cap(Team::Baddie))
-        .add_exit_system(Turn::baddie(), replenish_move_cap(Team::Goodie))
-        .add_enter_system(Turn::baddie(), mark_movables)
+        .add_system(attack(Team::Goodie).run_in_state(Turn::animate_goodie()))
+        .add_system(attack(Team::Baddie).run_in_state(Turn::animate_baddie()))
+        .add_enter_system(Turn::input_baddie(), mark_movables)
         .add_system(
             lose_win_conditions
                 .run_in_state(AppState::Game)
-                .run_in_state(Turn::goodie()),
+                .run_in_state(Turn::input_goodie()),
         )
         .add_exit_system(AppState::Game, cleanup_stuff);
 
@@ -274,16 +278,27 @@ impl Team {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deref, DerefMut, Eq, Hash, PartialEq)]
-pub struct Turn(pub Team);
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum Turn {
+    AnimateActions(Team),
+    InputActions(Team),
+}
 
 impl Turn {
-    fn goodie() -> Self {
-        Self(Team::Goodie)
+    fn animate_goodie() -> Self {
+        Self::AnimateActions(Team::Goodie)
     }
 
-    fn baddie() -> Self {
-        Self(Team::Baddie)
+    fn input_goodie() -> Self {
+        Self::InputActions(Team::Goodie)
+    }
+
+    fn animate_baddie() -> Self {
+        Self::AnimateActions(Team::Baddie)
+    }
+
+    fn input_baddie() -> Self {
+        Self::InputActions(Team::Baddie)
     }
 }
 
@@ -500,8 +515,6 @@ fn handle_select_action(
         {
             if let Ok(&MoveTo(ghost_entity)) = move_tos.get(selected_unit.unit) {
                 let mut unit_pos = ghosts.get_mut(ghost_entity).unwrap();
-                // let move_delta = unit_pos.0 - move_unit_to;
-                // move_cap.0 -= (move_delta.x.abs() + move_delta.y.abs()) as u32;
                 unit_pos.0 = move_unit_to;
                 commands.remove_resource::<SelectedUnit>();
             }
@@ -812,7 +825,7 @@ pub fn highlight_hovered_tile(
 fn end_turn(mut commands: Commands, actioners: Query<&ActionState<Action>>) {
     if actioners.single().just_pressed(Action::EndTurn) {
         commands.remove_resource::<SelectedUnit>();
-        commands.insert_resource(NextState(Turn::baddie()));
+        commands.insert_resource(NextState(Turn::animate_goodie()));
     }
 }
 
@@ -1042,7 +1055,7 @@ fn move_enemy_unit(
             .insert(MoveTo(ghost));
     } else {
         // Everyone has moved
-        commands.insert_resource(NextState(Turn::goodie()));
+        commands.insert_resource(NextState(Turn::animate_baddie()));
     }
 }
 
@@ -1065,13 +1078,17 @@ fn attack(
     attacking_team: Team,
 ) -> impl Fn(
     Commands,
+    Query<&MoveTo>,
     Query<(Entity, &UnitPos, &mut InsectBody, &Team)>,
     Res<BodyParts>,
     Res<Age>,
     ResMut<LevelGameplayInfo>,
 ) {
-    move |mut commands, mut units, stats, age, mut level_gameplay_info| {
+    move |mut commands, move_tos, mut units, stats, mut level_gameplay_info| {
         let mut rng = thread_rng();
+        if move_tos.iter().len() > 0 {
+            return;
+        }
         let mut attacks = Vec::default();
 
         // avoid using `iter_combinations` because it wont yield both `(enemy, player)` and `(player, enemy)`
@@ -1230,18 +1247,12 @@ fn attack(
             level_gameplay_info.set_last_killed(severee);
             commands.entity(severee).despawn_recursive();
         }
-    }
-}
 
-pub fn replenish_move_cap(
-    team: Team,
-) -> impl Fn(Query<(&Team, &InsectBody, &mut MoveCap)>, Res<BodyParts>) {
-    move |mut query, stats| {
-        for (unit_team, body, mut move_cap) in query.iter_mut() {
-            if *unit_team == team {
-                move_cap.0 = body.max_move_cap(&stats);
-            }
-        }
+        let team = match attacking_team {
+            Team::Goodie => Team::Baddie,
+            Team::Baddie => Team::Goodie,
+        };
+        commands.insert_resource(NextState(Turn::InputActions(team)))
     }
 }
 

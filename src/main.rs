@@ -181,8 +181,10 @@ fn debug_turn(current: Res<CurrentState<Turn>>) {
         debug!(
             "{}",
             match current.0 {
-                Turn(Team::Goodie) => "Your turn!",
-                Turn(Team::Baddie) => "Enemy turn!",
+                Turn::InputActions(Team::Goodie) => "Your turn!",
+                Turn::InputActions(Team::Baddie) => "Enemy turn!",
+                Turn::AnimateActions(Team::Goodie) => "Executing your turn!",
+                Turn::AnimateActions(Team::Baddie) => "Executirng enemy turn!",
             }
         );
     }
