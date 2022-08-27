@@ -704,10 +704,8 @@ fn spawn_ghost_for_selected_unit(
                 spawn_ghost(&mut commands, *pos, body.clone(), Team::Goodie, true);
             }
             Some(ghost_entity) => {
-                commands
-                    .entity(ghost_entity.0)
-                    .insert(CursorGhost)
-                    .remove::<MoveTo>();
+                commands.entity(ghost_entity.0).insert(CursorGhost);
+                commands.entity(selected_unit.unit).remove::<MoveTo>();
             }
         }
     }
@@ -744,10 +742,6 @@ fn move_ghost(
     selected_unit: Res<SelectedUnit>,
     cursor_pos: Res<CursorTilePos>,
 ) {
-    if !cursor_pos.is_changed() {
-        return;
-    }
-
     if let Ok(mut pos) = ghosts.get_single_mut() {
         **pos = cursor_pos.pos - selected_unit.at_local_pos.as_ivec2();
     }
