@@ -14,37 +14,69 @@ pub enum CollideWith {
     All,
 }
 
-pub fn get_movable_to_tiles<'a, NonGhosts>(
+pub fn get_path(map: StableHashMap<UVec2, u64>, from: UVec2, to: UVec2) -> Vec<UVec2> {
+    assert!(map[&from] == 0);
+    let mut path = vec![to];
+
+    while *path.last().unwrap() != from {
+        let mut lowest = u64::MAX;
+        let mut tile = None;
+        for adjacent in [
+            IVec2::new(-1, 0),
+            IVec2::new(1, 0),
+            IVec2::new(0, -1),
+            IVec2::new(0, 1),
+        ] {
+            let offseted = path.last().unwrap().as_ivec2() + adjacent;
+            if offseted.x < 0 || offseted.y < 0 {
+                continue;
+            }
+            if let Some(score) = map.get(&offseted.as_uvec2()).copied() {
+                if score < lowest {
+                    lowest = score;
+                    tile = Some(offseted.as_uvec2());
+                }
+            }
+        }
+        path.push(tile.unwrap());
+    }
+
+    path
+}
+
+pub fn ghost_updated_units<'a>(
+    units: impl Iterator<
+            Item = (
+                Entity,
+                &'a UnitPos,
+                &'a InsectBody,
+                &'a Team,
+                Option<&'a MoveTo>,
+            ),
+        > + 'a,
+    ghosts: impl Fn(Entity) -> &'a UnitPos + 'a,
+) -> impl Iterator<Item = (Entity, &'a UnitPos, &'a InsectBody, &'a Team)> + 'a {
+    units.map(move |(a, b, c, d, move_to)| match move_to {
+        Some(&MoveTo(ghost)) => {
+            let b = ghosts(ghost);
+            (a, b, c, d)
+        }
+        None => (a, b, c, d),
+    })
+}
+
+pub fn get_movable_to_tiles<'a, I>(
     entity: Entity,
     starting_pos: IVec2,
     body: &InsectBody,
     collide_with: CollideWith,
     move_cap: MoveCap,
-    units: impl Fn() -> NonGhosts + Copy + 'a,
-    ghosts: impl Fn(Entity) -> &'a UnitPos + 'a,
+    units: impl Fn() -> I + Copy + 'a,
     terrain_info: &TerrainInfo<'_, '_>,
 ) -> StableHashSet<UVec2>
 where
-    NonGhosts: Iterator<
-        Item = (
-            Entity,
-            &'a UnitPos,
-            &'a InsectBody,
-            &'a Team,
-            Option<&'a MoveTo>,
-        ),
-    >,
+    I: Iterator<Item = (Entity, &'a UnitPos, &'a InsectBody, &'a Team)>,
 {
-    let units = || {
-        units().map(|(a, b, c, d, move_to)| match move_to {
-            Some(&MoveTo(ghost)) => {
-                let b = ghosts(ghost);
-                (a, b, c, d)
-            }
-            None => (a, b, c, d),
-        })
-    };
-
     let terrain_map = terrain_info.get_terrain_map();
     get_movable_through_tiles(
         entity,

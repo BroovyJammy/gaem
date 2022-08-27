@@ -98,6 +98,14 @@ impl Plugin for GameplayPlugin {
                 .run_in_state(AppState::Game)
                 .label(DespawnGhost),
         );
+        app.add_enter_system(
+            Turn::animate_goodie(),
+            calculate_path_to_ghosts.run_in_state(AppState::Game),
+        );
+        app.add_enter_system(
+            Turn::animate_baddie(),
+            calculate_path_to_ghosts.run_in_state(AppState::Game),
+        );
 
         #[derive(SystemLabel)]
         struct DespawnGhost;
@@ -242,6 +250,9 @@ fn init_global_camera(mut commands: Commands) {
 /// Entity is for a ghost positioned correctly.
 #[derive(Component)]
 pub struct MoveTo(pub Entity);
+
+#[derive(Component)]
+pub struct PathFromNonGhost(Vec<UVec2>);
 
 // Resource that only exists when a unit is selected
 #[derive(Clone, Copy)]
@@ -503,8 +514,12 @@ fn handle_select_action(
             selected_body,
             team.collides_with(),
             *move_cap,
-            || units.iter().map(|(a, b, c, d, _, e)| (a, b, c, d, e)),
-            |ghost| ghosts.get(ghost).unwrap(),
+            || {
+                pathy::ghost_updated_units(
+                    units.iter().map(|(a, b, c, d, _, e)| (a, b, c, d, e)),
+                    |ghost| ghosts.get(ghost).unwrap(),
+                )
+            },
             &terrain_info,
         );
 
@@ -522,15 +537,64 @@ fn handle_select_action(
     }
 }
 
+fn calculate_path_to_ghosts(
+    mut commands: Commands<'_, '_>,
+    units: Query<
+        (
+            Entity,
+            &UnitPos,
+            &InsectBody,
+            &MoveCap,
+            &Team,
+            Option<&MoveTo>,
+        ),
+        Without<Ghost>,
+    >,
+    ghosts: Query<&UnitPos, With<Ghost>>,
+    terrain_info: TerrainInfo<'_, '_>,
+) {
+    for (unit_entity, pos, body, move_cap, team, move_to) in &units {
+        let move_to = match move_to {
+            None => continue,
+            Some(move_to) => move_to,
+        };
+
+        let map = pathy::get_movable_through_tiles(
+            unit_entity,
+            pos.0,
+            body,
+            team.collides_with(),
+            *move_cap,
+            || {
+                pathy::ghost_updated_units(
+                    units.iter().map(|(a, b, c, _, d, e)| (a, b, c, d, e)),
+                    |ghost| ghosts.get(ghost).unwrap(),
+                )
+            },
+            &terrain_info,
+        );
+        let ghost_pos = ghosts.get(move_to.0).unwrap();
+        let path = pathy::get_path(map, pos.0.as_uvec2(), ghost_pos.0.as_uvec2());
+        commands.entity(move_to.0).insert(PathFromNonGhost(path));
+    }
+}
+
 fn move_units(
     mut commands: Commands<'_, '_>,
     mut units: Query<(Entity, &mut UnitPos, &MoveTo), Without<Ghost>>,
-    positions: Query<&UnitPos, With<Ghost>>,
+    mut positions: Query<(&UnitPos, &mut PathFromNonGhost), With<Ghost>>,
 ) {
     for (unit_id, mut unit_pos, move_to) in &mut units {
-        *unit_pos = *positions.get(move_to.0).unwrap();
-        commands.entity(unit_id).remove::<MoveTo>();
-        commands.entity(move_to.0).despawn_recursive();
+        let (_, mut path) = positions.get_mut(move_to.0).unwrap();
+        match path.0.pop() {
+            None => {
+                commands.entity(unit_id).remove::<MoveTo>();
+                commands.entity(move_to.0).despawn_recursive();
+            }
+            Some(tile) => {
+                *unit_pos = UnitPos(tile.as_ivec2());
+            }
+        }
     }
 }
 
@@ -581,8 +645,12 @@ fn highlight_movable_tiles(
         body,
         team.collides_with(),
         *move_cap,
-        || units.iter().map(|(a, b, c, _, d, e)| (a, b, c, d, e)),
-        |ghost| ghosts.get(ghost).unwrap(),
+        || {
+            pathy::ghost_updated_units(
+                units.iter().map(|(a, b, c, _, d, e)| (a, b, c, d, e)),
+                |ghost| ghosts.get(ghost).unwrap(),
+            )
+        },
         &terrain_info,
     );
     for &tile in moveable_to_tiles.iter() {
@@ -956,14 +1024,16 @@ fn move_enemy_unit(
             Team::Baddie.collides_with(),
             *move_cap,
             || {
-                nearby_units.iter().map(|unit| {
-                    units
-                        .get(*unit)
-                        .map(|(a, b, c, _, d, e)| (a, b, c, d, e))
-                        .unwrap()
-                })
+                pathy::ghost_updated_units(
+                    nearby_units.iter().map(|unit| {
+                        units
+                            .get(*unit)
+                            .map(|(a, b, c, _, d, e)| (a, b, c, d, e))
+                            .unwrap()
+                    }),
+                    |ghost| ghosts.get(ghost).unwrap(),
+                )
             },
-            |ghost| ghosts.get(ghost).unwrap(),
             &terrain_info,
         );
         debug!("unit pos: {:?}", unit_pos);
