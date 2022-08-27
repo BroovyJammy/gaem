@@ -80,6 +80,7 @@ fn main() {
     // our global things
     app.add_loopless_state(AppState::AssetsLoading);
     app.register_type::<AppState>();
+    app.add_stage_before(CoreStage::Update, "fuckstages", SystemStage::parallel());
 
     // external plugins
     app.add_plugin(ProgressPlugin::new(AppState::AssetsLoading));
