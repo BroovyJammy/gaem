@@ -46,6 +46,10 @@ impl LevelGameplayInfo {
     }
 
     pub fn find_root_unsplit_insect_for(&self, mut splitten: Entity) -> InsectBody {
+        for (entity, _) in &self.generated_enemies {
+            debug!("generated_enemy: {:?}", entity);
+        }
+        debug!("splitted_to_unsplit: {:?}", &self.splitted_to_unsplit);
         while let Some(unsplit) = self.splitted_to_unsplit.get(&splitten) {
             splitten = *unsplit;
         }
