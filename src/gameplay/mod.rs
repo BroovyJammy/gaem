@@ -1201,8 +1201,8 @@ fn attack(
                 }
 
                 for attacker_part in attacker_body.parts.iter() {
-                    // It is obviously illegal to deal random damage to someone under 40
-                    if (**age as f32 - 45.) * rng.gen::<f32>() > 5. {
+                    // Old age
+                    if (**age as f32 - 75.) * rng.gen::<f32>() > 5. {
                         attacks.push((attacker, attacker_part.position, 1));
                     }
 
