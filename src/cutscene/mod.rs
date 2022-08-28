@@ -206,6 +206,15 @@ fn cutscene_driver(
 
             player.next_scene_spawn = meta.spawn_scene.iter()
                 .position(|entry| entry.spawn_on_dialogue == player.current_dialogue);
+
+            while let Some(spawn_scene) = player.next_scene_spawn.and_then(|i| meta.spawn_scene.get(i)) {
+                if spawn_scene.delay.is_none() {
+                    let handle = get_scene_by_name(&ass, &spawn_scene.name);
+                    player.next_scene_spawn = player.next_scene_spawn.map(|x| x + 1);
+                    player.active_scenes.insert(handle.clone(), spawn_scene.duration.map(|x| now + x));
+                    scenespawner.spawn_dynamic(handle);
+                }
+            }
         }
     }
 
