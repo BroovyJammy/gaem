@@ -1,36 +1,30 @@
 title = "06"
 
 [[spawn_scene]]
-t_sec = 0.1
+spawn_on_dialogue = 0
 name = "test"
 
 [[dialogue]]
-mode = { WaitSeconds = 2.0 }
 name = "silkarella"
 text = "I don't remember why you said you were here spindy"
 
 [[dialogue]]
-mode = { WaitSeconds = 2.0 }
 name = "spindarella"
 text = "Whoops, that's 'cos i didn't."
 
 [[dialogue]]
-mode = { WaitSeconds = 4.0 }
 name = "spindarella"
 text = "Pure chance really, I wanted a fresh start and just took off in this direction"
 
 [[dialogue]]
-mode = { WaitSeconds = 2.0 }
 name = "silkarella"
 text = "And the creating of your little monster army? hehe"
 
 [[dialogue]]
-mode = { WaitSeconds = 5.0 }
 name = "spindarella"
 text = "It's like exercise I guess, got to keep using these webs for something or I'll get *rust*y (badumtish)"
 
 [[dialogue]]
-mode = { WaitSeconds = 2.0 }
 name = "silkarella"
 text = "Oh..."
 

@@ -1,46 +1,39 @@
 title = "01"
 
 [[spawn_scene]]
-t_sec = 0.1
 name = "test"
+spawn_on_dialogue = 0
+despawn_on_dialogue = 6
 
 [[dialogue]]
-mode = { WaitSeconds = 1.0 }
 name = "spindarella"
 text = ",,,pretty,,"
 
 [[dialogue]]
-mode = { WaitSeconds = 1.0 }
 name = "spindarella"
 text = "oh gosh I am so sorry hi hello hi"
 
 [[dialogue]]
-mode = { WaitSeconds = 1.0 }
 name = "silkarella"
 text = "that's okay darling >x3"
 
 [[dialogue]]
-mode = { WaitSeconds = 3.0 }
 name = "silkarella"
 text = "I saw how you monched up those monsters, very nice I must say hehe"
 
 [[dialogue]]
-mode = { WaitSeconds = 3.0 }
 name = "silkarella"
 text = "I'm silkarella (they them) by the way, I really must be off now though"
 
 [[dialogue]]
-mode = { WaitSeconds = 1.0 }
 name = "spindarella"
 text = "..."
 
 [[dialogue]]
-mode = { WaitSeconds = 2.0 }
 name = "spindarella"
 text = "w-w-wait sil- oh.. they're gone"
 
 [[dialogue]]
-mode = { WaitSeconds = 2.0 }
 name = "spindarella"
 text = "I didn't even get to tell them my name..."
 

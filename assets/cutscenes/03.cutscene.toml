@@ -1,36 +1,30 @@
 title = "03"
 
 [[spawn_scene]]
-t_sec = 0.1
+spawn_on_dialogue = 0
 name = "test"
 
 [[dialogue]]
-mode = { WaitSeconds = 1.0 }
 name = "spindarella"
 text = "whew that was a big one"
 
 [[dialogue]]
-mode = { WaitSeconds = 2.0 }
 name = "spindarella"
 text = "it will make a fine addition to my collection"
 
 [[dialogue]]
-mode = { WaitSeconds = 2.0 }
 name = "silkarella"
 text = "oh hey spindy, you're a sight for sore eyes"
 
 [[dialogue]]
-mode = { WaitSeconds = 2.0 }
 name = "spindarella"
 text = "silkarella!! tthanks,, hey wait how did you kno-"
 
 [[dialogue]]
-mode = { WaitSeconds = 3.0 }
 name = "silkarella"
 text = "good job with that big monster back there by the way, *very* impressive"
 
 [[dialogue]]
-mode = { WaitSeconds = 5.0 }
 name = "silkarella"
 text = "be careful around here though, I heard that in the heart of the cavern there's a truly gargantuan specimen"
 

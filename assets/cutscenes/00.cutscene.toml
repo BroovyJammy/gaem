@@ -1,16 +1,14 @@
 title = "00"
 
 [[spawn_scene]]
-t_sec = 0.1
+spawn_on_dialogue = 0
 name = "test"
 
 [[dialogue]]
-mode = { WaitSeconds = 1.0 }
 name = "spindarella"
 text = "wow what a wonderful cavern"
 
 [[dialogue]]
-mode = { WaitSeconds = 3.0 }
 name = "spindarella"
 text = "I can't wait to use my awesome web marionette skills to create some abominations..."
 transition = { AppState = "Game" }

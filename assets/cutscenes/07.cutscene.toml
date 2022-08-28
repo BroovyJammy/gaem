@@ -1,36 +1,30 @@
 title = "07"
 
 [[spawn_scene]]
-t_sec = 0.1
+spawn_on_dialogue = 0
 name = "test"
 
 [[dialogue]]
-mode = { WaitSeconds = 3.0 }
 name = "spindarella"
 text = "What's wrong, you've been kind of off since you asked why I came here"
 
 [[dialogue]]
-mode = { WaitSeconds = 5.0 }
 name = "silkarella"
 text = "Oh, there were some people who came here to kill that gargantuan specimen I mentioned earlier."
 
 [[dialogue]]
-mode = { WaitSeconds = 3.0 }
 name = "silkarella"
 text = "I thought maybe you were here for the same reason."
 
 [[dialogue]]
-mode = { WaitSeconds = 3.0 }
 name = "spindarella"
 text = "wow, no I am not brave enough for that"
 
 [[dialogue]]
-mode = { WaitSeconds = 3.0 }
 name = "silkarella"
 text = "well dont worry spindy, i'll protect you if they show up"
 
 [[dialogue]]
-mode = { WaitSeconds = 2.0 }
 name = "spindarella"
 text = "my knight in shining armour..."
 transition = { AppState = "Game" }
