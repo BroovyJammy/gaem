@@ -37,8 +37,6 @@ pub struct CutsceneMetaAsset {
     pub dialogue: Vec<DialogueEntry>,
     #[serde(default)]
     pub spawn_scene: Vec<SpawnSceneEntry>,
-    #[serde(default)]
-    pub despawn_scene: Vec<DespawnSceneEntry>,
 }
 
 #[derive(serde::Deserialize)]
@@ -75,13 +73,14 @@ pub enum DialogueMode {
 
 #[derive(serde::Deserialize)]
 pub struct SpawnSceneEntry {
-    t_sec: f32,
-    name: String,
-}
-
-#[derive(serde::Deserialize)]
-pub struct DespawnSceneEntry {
-    t_sec: f32,
+    /// trigger on this entry
+    spawn_on_dialogue: usize,
+    /// despawn on this entry
+    despawn_on_dialogue: usize,
+    /// at this time after dialogue entry
+    delay: f32,
+    /// despawn this many seconds after spawn
+    duration: f32,
     name: String,
 }
 
@@ -102,11 +101,10 @@ impl CurrentCutscene {
 
 struct CutscenePlayerState {
     start: Instant,
-    next_scene_spawn: usize,
-    next_scene_despawn: usize,
     current_dialogue: usize,
+    next_scene_spawn: Option<usize>,
     dialogue_start_time: f32,
-    active_scenes: HashSet<Handle<DynamicScene>>,
+    active_scenes: HashMap<Handle<DynamicScene>, f32>,
 }
 
 fn init_cutscene(
@@ -128,16 +126,14 @@ fn init_cutscene(
         &current.title,
     ));
 
-    // sort scene spawn/despawn events by time
+    // sort scene spawn/despawn events by time and then by dialogue index
     let meta = assets.get_mut(current.handle.as_ref().unwrap()).unwrap();
-    meta.spawn_scene.sort_by_key(|entry| FloatOrd(entry.t_sec));
-    meta.despawn_scene
-        .sort_by_key(|entry| FloatOrd(entry.t_sec));
+    meta.spawn_scene.sort_by_key(|entry| FloatOrd(entry.delay));
+    meta.spawn_scene.sort_by_key(|entry| entry.spawn_on_dialogue);
 
     let player = CutscenePlayerState {
         start: time.startup() + time.time_since_startup(),
-        next_scene_spawn: 0,
-        next_scene_despawn: 0,
+        next_scene_spawn: None,
         current_dialogue: 0,
         dialogue_start_time: 0.0,
         active_scenes: Default::default(),
@@ -152,7 +148,7 @@ fn cleanup_cutscene(
     ui_scenes: Res<UiScenes>,
 ) {
     scenespawner.despawn(ui_scenes.dialogue_box.clone());
-    for handle in player.active_scenes.drain() {
+    for (handle, _) in player.active_scenes.drain() {
         scenespawner.despawn(handle);
     }
 }
@@ -182,6 +178,16 @@ fn cutscene_driver(
             }
         }
         if transition {
+            for entry in meta.spawn_scene.iter() {
+                if entry.despawn_on_dialogue != player.current_dialogue {
+                    continue;
+                }
+                let handle = get_scene_by_name(&ass, &entry.name);
+                if player.active_scenes.remove(&handle).is_some() {
+                    scenespawner.despawn(handle);
+                }
+            }
+
             match &dialogue_entry.transition {
                 DialogueNext::Auto => {
                     player.current_dialogue += 1;
@@ -197,33 +203,27 @@ fn cutscene_driver(
                     commands.insert_resource(CurrentCutscene::new(cutscene));
                 }
             }
+
+            player.next_scene_spawn = meta.spawn_scene.iter()
+                .position(|entry| entry.spawn_on_dialogue == player.current_dialogue);
         }
     }
 
-    loop {
-        if let Some(despawn_scene) = meta.despawn_scene.get(player.next_scene_despawn) {
-            if now > despawn_scene.t_sec {
-                let handle = get_scene_by_name(&ass, &despawn_scene.name);
-                player.next_scene_despawn += 1;
-                player.active_scenes.remove(&handle);
-                scenespawner.despawn(handle);
-                continue;
-            }
-        }
-        break;
-    }
+    player.active_scenes
+        .drain_filter(|_, end| now > *end)
+        .for_each(|(handle, _)| scenespawner.despawn(handle));
 
-    loop {
-        if let Some(spawn_scene) = meta.spawn_scene.get(player.next_scene_spawn) {
-            if now > spawn_scene.t_sec {
-                let handle = get_scene_by_name(&ass, &spawn_scene.name);
-                player.next_scene_spawn += 1;
-                player.active_scenes.insert(handle.clone());
-                scenespawner.spawn_dynamic(handle);
-                continue;
-            }
+    while let Some(spawn_scene) = player.next_scene_spawn.and_then(|i| meta.spawn_scene.get(i)) {
+        if spawn_scene.spawn_on_dialogue != player.current_dialogue {
+            break;
         }
-        break;
+        if now > player.dialogue_start_time + spawn_scene.delay {
+            let handle = get_scene_by_name(&ass, &spawn_scene.name);
+            player.next_scene_spawn = player.next_scene_spawn.map(|x| x + 1);
+            player.active_scenes.insert(handle.clone(), now + spawn_scene.duration);
+            scenespawner.spawn_dynamic(handle);
+            continue;
+        }
     }
 }
 
