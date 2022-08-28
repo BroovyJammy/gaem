@@ -169,8 +169,6 @@ pub fn confirm_combine_unit(
     mut current_units: ResMut<CurrentUnits>,
     level_gameplay_info: Res<LevelGameplayInfo>,
     stats: Res<BodyParts>,
-    levels: Res<Levels>,
-    mut current_level: ResMut<CurrentLevel>,
 ) {
     if actioner.single().just_pressed(Action::Select) {
         let enemy_body = level_gameplay_info
@@ -192,14 +190,7 @@ pub fn confirm_combine_unit(
             }
         }
 
-        let level = &levels[current_level.0];
-        if let Some(cutscene) = &level.post_cutscene {
-            commands.insert_resource(CurrentCutscene::new(cutscene));
-            commands.insert_resource(NextState(AppState::PlayCutscene));
-            current_level.0 += 1;
-        } else {
-            debug!("finished level but there was no cutscene to move to");
-        }
+        commands.insert_resource(NextState(AppState::PlayCutscene));
     }
 }
 

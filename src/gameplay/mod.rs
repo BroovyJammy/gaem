@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
 use crate::asset::{AudioAssets, BodyParts, Terrain, TerrainDescriptor};
+use crate::cutscene::CurrentCutscene;
 use crate::gameplay::insect_body::{InsectPart, InsectPartKind, PartDirection};
 use crate::gameplay::insect_combiner::{LevelGameplayInfo, UnitToCombine};
 use crate::{gameplay::insect_body::InsectBody, prelude::*};
@@ -954,16 +955,21 @@ fn lose_win_conditions(
     units: Query<(Entity, &Team)>,
     mut current_level: ResMut<CurrentLevel>,
     mut _temp: Query<&ActionState<Action>>,
+    levels: Res<Levels>,
 ) {
-    if _temp.single().just_pressed(Action::SkipLevel) {
+    if _temp.single().just_pressed(Action::SkipLevel)
+        || !units.iter().any(|(_, team)| matches!(team, Team::Baddie))
+    {
+        let level = &levels.0[current_level.0];
+        match &level.post_cutscene {
+            None => debug!("finished level but there was no cutscene to move to"),
+            Some(cutscene) => {
+                commands.insert_resource(CurrentCutscene::new(cutscene));
+            }
+        };
         commands.insert_resource(UnitToCombine(0));
         commands.insert_resource(NextState(AppState::PlayCutscene));
         current_level.0 += 1;
-    }
-
-    if !units.iter().any(|(_, team)| matches!(team, Team::Baddie)) {
-        commands.insert_resource(UnitToCombine(0));
-        commands.insert_resource(NextState(AppState::InsectCombiner));
     }
 
     if !units.iter().any(|(_, team)| matches!(team, Team::Goodie)) {

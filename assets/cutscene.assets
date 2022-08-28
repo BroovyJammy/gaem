@@ -1,6 +1,6 @@
 ({
     "cutscenes.meta": Files (
-        paths: ["cutscenes/01.cutscene.toml"],
+        paths: ["cutscenes/intro.cutscene.toml", "cutscenes/first_meet.cutscene.toml"],
     ),
     "cutscenes.scenes": Files (
         paths: ["scene/cutscenes/test.scn.ron"],

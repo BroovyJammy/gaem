@@ -1,0 +1,42 @@
+title = "iyes finds god"
+
+[[spawn_scene]]
+t_sec = 0.1
+name = "test"
+
+[[dialogue]]
+mode = { WaitSeconds = 1.0 }
+name = "spindarella"
+text = ",,,pretty,,"
+
+[[dialogue]]
+mode = { WaitSeconds = 1.0 }
+name = "spindarella"
+text = "oh gosh I am so sorry hi hello hi"
+
+[[diagloue]]
+mode = { WaitSeconds = 1.0 }
+name = "silkarella"
+text = "that's okay darling >x3"
+
+[[dialogue]]
+mode = { WaitSeconds = 3.0 }
+name = "silkarella"
+text = "I saw how you monched up those monsters, very nice I must say hehe"
+
+[[dialogue]]
+mode = { WaitSeconds = 3.0 }
+name = "silkarella"
+text = "I'm silkarella by the way, I really must be off now though"
+
+[[dialogue]]
+mode = { WaitSeconds = 1.0 }
+name = "spindarella"
+text = "..."
+
+[[diagloue]]
+mode = { WaitSeconds = 2.0 }
+name = "spindarella"
+text = "w-w-wait sil- oh.. she's gone"
+
+transition = { AppState = "Game" }

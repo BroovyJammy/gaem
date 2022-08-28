@@ -1,0 +1,16 @@
+title = "intro"
+
+[[spawn_scene]]
+t_sec = 0.1
+name = "test"
+
+[[dialogue]]
+mode = { WaitSeconds = 1.0 }
+name = "spindarella"
+text = "wow what a wonderful forest *w*"
+
+[[dialogue]]
+mode = { WaitSeconds = 3.0 }
+name = "spindarella"
+text = "I can't wait to use my awesome web marionette skills to create some abominations..."
+transition = { AppState = "Game" }

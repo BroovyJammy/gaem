@@ -103,7 +103,7 @@ fn main() {
         app.add_system(debug_turn.exclusive_system().at_start());
     }
 
-    app.insert_resource(cutscene::CurrentCutscene::new("iyes finds god"));
+    app.insert_resource(cutscene::CurrentCutscene::new("intro"));
     app.insert_resource(gameplay::CurrentLevel(0));
     // temporary, we should load levels from a file
     app.insert_resource(gameplay::Levels(vec![
