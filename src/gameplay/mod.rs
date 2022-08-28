@@ -213,10 +213,8 @@ impl Plugin for GameplayPlugin {
             insect_combiner::cleanup_insect_combiner,
         );
 
-        app.init_resource::<Age>()
-            .add_enter_system(Turn::input_goodie(), pass_time)
-            .add_enter_system(Turn::input_baddie(), pass_time)
-            .add_enter_system(AppState::Game, reset_time);
+        app.add_enter_system(Turn::input_goodie(), increase_hunger)
+            .add_enter_system(Turn::input_baddie(), increase_hunger);
         app.add_system(
             despawn_cursor_ghost
                 .run_in_state(Turn::input_goodie())
@@ -443,6 +441,7 @@ fn insert_units(
                 body.clone(),
                 Team::Baddie,
                 move_cap,
+                default(),
             );
             (insect_id, body)
         })
@@ -458,7 +457,14 @@ fn insert_units(
         .zip(player_units.0.iter().cloned())
     {
         let move_cap = MoveCap(body.max_move_cap(&stats));
-        spawn_insect(&mut commands, pos.as_ivec2(), body, Team::Goodie, move_cap);
+        spawn_insect(
+            &mut commands,
+            pos.as_ivec2(),
+            body,
+            Team::Goodie,
+            move_cap,
+            default(),
+        );
     }
 }
 
@@ -1161,19 +1167,14 @@ fn move_enemy_unit(
     }
 }
 
-#[derive(Default, Deref, DerefMut)]
-struct Age(u32);
+#[derive(Clone, Component, Copy, Default, Deref, DerefMut)]
+pub struct Hunger(u32);
 
 // Increments on both goodie and baddie turn
-fn pass_time(mut age: ResMut<Age>) {
-    **age += 1;
-    // Yet another year, huh
-    // Time really flies
-}
-
-fn reset_time(mut age: ResMut<Age>) {
-    // Time travel!
-    **age = 0;
+fn increase_hunger(mut hungers: Query<&mut Hunger>) {
+    for mut hunger in &mut hungers {
+        **hunger += 1;
+    }
 }
 
 fn attack(
@@ -1181,28 +1182,28 @@ fn attack(
 ) -> impl Fn(
     Commands,
     Query<&MoveTo>,
-    Query<(Entity, &UnitPos, &mut InsectBody, &Team)>,
+    Query<(Entity, &UnitPos, &mut InsectBody, &Team, &mut Hunger)>,
     Res<BodyParts>,
-    Res<Age>,
     ResMut<LevelGameplayInfo>,
 ) {
-    move |mut commands, move_tos, mut units, stats, age, mut level_gameplay_info| {
+    move |mut commands, move_tos, mut units, stats, mut level_gameplay_info| {
         let mut rng = thread_rng();
         if move_tos.iter().len() > 0 {
             return;
         }
         let mut attacks = Vec::default();
+        let mut feed = Vec::default();
 
         // avoid using `iter_combinations` because it wont yield both `(enemy, player)` and `(player, enemy)`
-        for (attacker, attacker_pos, attacker_body, attacker_team) in units.iter() {
-            for (defender, defender_pos, defender_body, _) in units.iter() {
+        for (attacker, attacker_pos, attacker_body, attacker_team, hunger) in units.iter() {
+            for (defender, defender_pos, defender_body, _, _) in units.iter() {
                 if defender == attacker || attacking_team != *attacker_team {
                     continue;
                 }
 
                 for attacker_part in attacker_body.parts.iter() {
-                    // Old age
-                    if (**age as f32 - 75.) * rng.gen::<f32>() > 5. {
+                    // Start starving gradually after 30 turns
+                    if **hunger as f32 * rng.gen::<f32>() > 30. {
                         attacks.push((attacker, attacker_part.position, 1));
                     }
 
@@ -1222,10 +1223,16 @@ fn attack(
                         if delta.x.abs() + delta.y.abs() == 1 {
                             // Adjacent
                             attacks.push((defender, defender_part.position, damage));
+                            feed.push(attacker);
                         }
                     }
                 }
             }
+        }
+
+        for feed in feed {
+            let (_, _, _, _, mut hunger) = units.get_mut(feed).unwrap();
+            **hunger = 0;
         }
 
         let mut to_sever = HashSet::default();
@@ -1233,7 +1240,7 @@ fn attack(
         for (victim, part_pos, damage) in attacks.into_iter() {
             commands.entity(victim).insert(UpdateBody);
 
-            let (_, _, mut body, _) = units.get_mut(victim).unwrap();
+            let (_, _, mut body, _, _) = units.get_mut(victim).unwrap();
             let part = body.get_part_mut(part_pos).unwrap();
 
             part.health = part.health.saturating_sub(damage);
@@ -1246,13 +1253,13 @@ fn attack(
         }
 
         for (severee, part) in to_sever.into_iter() {
-            let (_, _, mut body, _) = units.get_mut(severee).unwrap();
+            let (_, _, mut body, _, _) = units.get_mut(severee).unwrap();
             body.remove_part(part);
         }
 
         // Have to do this logic separately in case multiple parts were severed
         for severee in severees.into_iter() {
-            let (_, body_pos, body, body_team) = units.get(severee).unwrap();
+            let (_, body_pos, body, body_team, hunger) = units.get(severee).unwrap();
 
             let mut living = HashSet::<(u32, u32)>::default();
             let mut to_visit = body
@@ -1343,6 +1350,7 @@ fn attack(
                     body,
                     *body_team,
                     MoveCap(move_cap),
+                    *hunger,
                 );
                 level_gameplay_info.insert_insect_split(severee, std::iter::once(insect_id));
             }

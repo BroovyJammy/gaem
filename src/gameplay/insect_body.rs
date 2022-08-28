@@ -1,5 +1,5 @@
-use super::Ghost;
 use super::{map::TILE_SIZE, MoveCap, Team, UnitPos};
+use super::{Ghost, Hunger};
 use crate::asset::{BodyParts, MapAssets};
 use crate::prelude::*;
 use bevy::{
@@ -206,6 +206,7 @@ pub fn spawn_insect(
     body: InsectBody,
     team: Team,
     move_cap: MoveCap,
+    hunger: Hunger,
 ) -> Entity {
     commands
         .spawn()
@@ -219,6 +220,7 @@ pub fn spawn_insect(
             body_part: StableHashMap::with_hasher(Default::default()),
         })
         .insert(move_cap)
+        .insert(hunger)
         .insert_bundle(VisibilityBundle { ..default() })
         .id()
 }

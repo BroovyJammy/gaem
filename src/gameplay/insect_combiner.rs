@@ -88,6 +88,7 @@ pub fn setup_insect_combiner(
         current_units.0[0].clone(),
         Team::Goodie,
         MoveCap(current_units.0[0].clone().max_move_cap(&stats)),
+        default(),
     );
 }
 
