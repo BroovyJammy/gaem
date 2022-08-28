@@ -21,4 +21,13 @@
     "sound.music": File (
         path: "sound/music/Music_V1.ogg",
     ),
+    "sound.squish_1": File (
+        path: "sound/effect/UI_Click_1.ogg",
+    ),
+    "sound.squish_2": File (
+        path: "sound/effect/UI_Click_2.ogg",
+    ),
+    "sound.squish_3": File (
+        path: "sound/effect/UI_Click_3.ogg",
+    ),
 })

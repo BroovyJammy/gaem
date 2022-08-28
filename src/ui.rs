@@ -2,7 +2,7 @@ use bevy::ui::FocusPolicy;
 
 use crate::{
     asset::{BodyParts, UiAssets, UiScenes},
-    gameplay::{HoveredInsectPart, SelectedUnit, Turn},
+    gameplay::{HoveredInsectPart, SelectedUnit, Squish, Turn},
     prelude::*,
 };
 
@@ -12,7 +12,10 @@ impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.add_enter_system(AppState::MainMenu, setup_main_menu);
         app.add_exit_system(AppState::MainMenu, cleanup_main_menu);
-        app.add_system_to_stage("fuckstages", setup_ui_blueprints.run_not_in_state(AppState::AssetsLoading));
+        app.add_system_to_stage(
+            "fuckstages",
+            setup_ui_blueprints.run_not_in_state(AppState::AssetsLoading),
+        );
         app.add_system(butts_visuals);
         // workaround until we figure out how these things are supposed to be in bevy
         app.register_type::<smallvec::SmallVec<[bevy::ecs::entity::Entity; 8]>>();
@@ -27,7 +30,10 @@ impl Plugin for UiPlugin {
         app.add_system(butts_interaction.chain(butts::handle_butt_transition::<AppState>));
         app.add_enter_system(AppState::Game, spawn_sidebar);
         app.add_exit_system(AppState::Game, despawn_combat_ui);
-        app.add_system_to_stage("fuckstages", add_sidebar_font.run_not_in_state(AppState::AssetsLoading));
+        app.add_system_to_stage(
+            "fuckstages",
+            add_sidebar_font.run_not_in_state(AppState::AssetsLoading),
+        );
         app.add_system(update_sidebar.run_in_state(AppState::Game));
         app.add_enter_system(AppState::Game, spawn_end_turn_button);
         app.add_system(handle_end_turn_button.run_in_state(Turn::input_goodie()));
@@ -176,10 +182,12 @@ fn butts_visuals(
 }
 
 fn butts_interaction<B: Component + Clone>(
+    mut squishes: EventWriter<Squish>,
     q: Query<(&Interaction, &B), (Changed<Interaction>, With<Button>)>,
 ) -> Option<B> {
     for (interaction, b) in q.iter() {
         if let Interaction::Clicked = interaction {
+            squishes.send(Squish);
             return Some(b.clone());
         }
     }
@@ -408,10 +416,12 @@ fn spawn_end_turn_button(mut commands: Commands, assets: Res<UiAssets>) {
 
 fn handle_end_turn_button(
     mut commands: Commands,
+    mut squishes: EventWriter<Squish>,
     buttons: Query<&Interaction, (With<EndTurnButton>, Changed<Interaction>)>,
 ) {
     for button in &buttons {
         if let Interaction::Clicked = button {
+            squishes.send(Squish);
             commands.remove_resource::<SelectedUnit>();
             commands.insert_resource(NextState(Turn::animate_goodie()));
         }

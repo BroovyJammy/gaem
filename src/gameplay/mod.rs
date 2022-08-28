@@ -8,6 +8,7 @@ use bevy::ecs::system::SystemParam;
 use bevy::utils::{HashSet, StableHashMap};
 use leafwing_input_manager::user_input::InputKind;
 use rand::rngs::StdRng;
+use rand::seq::SliceRandom;
 use rand::{thread_rng, Rng, SeedableRng};
 
 pub mod insect_body;
@@ -221,7 +222,9 @@ impl Plugin for GameplayPlugin {
                 .run_if_resource_removed::<SelectedUnit>(),
         );
 
-        app.add_enter_system(AppState::MainMenu, play_music);
+        app.add_enter_system(AppState::MainMenu, play_music)
+            .add_event::<Squish>()
+            .add_system(squish.run_not_in_state(AppState::AssetsLoading));
     }
 }
 
@@ -473,6 +476,7 @@ fn insert_units(
 fn handle_select_action(
     mut commands: Commands<'_, '_>,
     mut tile_selected_writer: EventWriter<TileSelected>,
+    mut squishes: EventWriter<Squish>,
     actioners: Query<&ActionState<Action>>,
     cursor_pos: Res<CursorTilePos>,
     selected_unit: Option<Res<SelectedUnit>>,
@@ -507,10 +511,13 @@ fn handle_select_action(
 
         if body.contains_tile(*pos, cursor_pos.pos) {
             match team {
-                Team::Goodie => commands.insert_resource(SelectedUnit {
-                    unit,
-                    at_local_pos: (cursor_pos.pos - pos.0).as_uvec2(),
-                }),
+                Team::Goodie => {
+                    squishes.send(Squish);
+                    commands.insert_resource(SelectedUnit {
+                        unit,
+                        at_local_pos: (cursor_pos.pos - pos.0).as_uvec2(),
+                    });
+                }
                 Team::Baddie => commands.remove_resource::<SelectedUnit>(),
             }
             return;
@@ -541,6 +548,7 @@ fn handle_select_action(
             && move_unit_to.y >= 0
             && moveable_to_tiles.contains(&move_unit_to.as_uvec2())
         {
+            squishes.send(Squish);
             let ghost_entity = cursor_ghost.single();
             commands.entity(ghost_entity).remove::<CursorGhost>();
             commands
@@ -595,6 +603,7 @@ fn calculate_path_to_ghosts(
 
 fn move_units(
     mut commands: Commands<'_, '_>,
+    mut squishes: EventWriter<Squish>,
     mut units: Query<(Entity, &mut UnitPos, &MoveTo), Without<Ghost>>,
     mut positions: Query<(&UnitPos, &mut PathFromNonGhost), With<Ghost>>,
 ) {
@@ -602,6 +611,7 @@ fn move_units(
         let (_, mut path) = positions.get_mut(move_to.0).unwrap();
         match path.0.pop() {
             None => {
+                squishes.send(Squish);
                 commands.entity(unit_id).remove::<MoveTo>();
                 commands.entity(move_to.0).despawn_recursive();
             }
@@ -1398,5 +1408,19 @@ fn play_music(mut has_played: Local<HasPlayedMusic>, assets: Res<AudioAssets>, a
     if !**has_played {
         audio.play(assets.music.clone()).looped();
         **has_played = true;
+    }
+}
+
+pub struct Squish;
+
+// Makes a squish noise
+fn squish(squishes: EventReader<Squish>, assets: Res<AudioAssets>, audio: Res<Audio>) {
+    if !squishes.is_empty() {
+        audio.play(
+            (*[&assets.squish_1, &assets.squish_2, &assets.squish_3]
+                .choose(&mut thread_rng())
+                .unwrap())
+            .clone(),
+        );
     }
 }

@@ -91,6 +91,12 @@ pub struct UiScenes {
 pub struct AudioAssets {
     #[asset(key = "sound.music")]
     pub music: Handle<AudioSource>,
+    #[asset(key = "sound.squish_1")]
+    pub squish_1: Handle<AudioSource>,
+    #[asset(key = "sound.squish_2")]
+    pub squish_2: Handle<AudioSource>,
+    #[asset(key = "sound.squish_3")]
+    pub squish_3: Handle<AudioSource>,
 }
 
 /// This will be available as a resource
