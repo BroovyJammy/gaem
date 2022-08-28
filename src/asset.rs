@@ -32,7 +32,8 @@ impl Plugin for AssetsPlugin {
                 .with_collection::<BodyPartAssets>()
                 .with_collection::<TerrainAssets>()
                 .with_collection::<CutsceneAssets>()
-                .with_collection::<MapAssets>(),
+                .with_collection::<MapAssets>()
+                .with_collection::<AudioAssets>(),
         );
         app.add_plugin(TomlAssetPlugin::<BodyPartAsset>::new(&["bodypart.toml"]));
         app.add_plugin(TomlAssetPlugin::<TerrainAsset>::new(&["terrain.toml"]));
@@ -84,6 +85,12 @@ pub struct UiScenes {
     pub main_menu: Handle<DynamicScene>,
     #[asset(key = "scene.dialogue_box")]
     pub dialogue_box: Handle<DynamicScene>,
+}
+
+#[derive(AssetCollection)]
+pub struct AudioAssets {
+    #[asset(key = "sound.music")]
+    pub music: Handle<AudioSource>,
 }
 
 /// This will be available as a resource

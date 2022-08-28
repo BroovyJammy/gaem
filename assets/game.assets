@@ -18,4 +18,7 @@
         columns: 4,
         rows: 3,
     ),
+    "sound.music": File (
+        path: "sound/music/Music_V1.ogg",
+    ),
 })

@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::asset::{BodyParts, Terrain, TerrainDescriptor};
+use crate::asset::{AudioAssets, BodyParts, Terrain, TerrainDescriptor};
 use crate::gameplay::insect_body::{InsectPart, InsectPartKind, PartDirection};
 use crate::gameplay::insect_combiner::{LevelGameplayInfo, UnitToCombine};
 use crate::{gameplay::insect_body::InsectBody, prelude::*};
@@ -220,6 +220,8 @@ impl Plugin for GameplayPlugin {
                 .run_in_state(Turn::input_goodie())
                 .run_if_resource_removed::<SelectedUnit>(),
         );
+
+        app.add_enter_system(AppState::MainMenu, play_music);
     }
 }
 
@@ -1387,4 +1389,14 @@ fn update_hovered_insect_part(
         body.get_part((part_pos.x, part_pos.y))
             .map(|part| part.kind)
     });
+}
+
+#[derive(Default, Deref, DerefMut)]
+struct HasPlayedMusic(bool);
+
+fn play_music(mut has_played: Local<HasPlayedMusic>, assets: Res<AudioAssets>, audio: Res<Audio>) {
+    if !**has_played {
+        audio.play(assets.music.clone()).looped();
+        **has_played = true;
+    }
 }

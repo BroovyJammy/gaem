@@ -86,6 +86,7 @@ fn main() {
     app.add_plugin(ProgressPlugin::new(AppState::AssetsLoading));
     app.add_plugin(TilemapPlugin);
     app.add_plugin(InputManagerPlugin::<gameplay::Action>::default());
+    app.add_plugin(AudioPlugin);
 
     // our plugins
     app.add_plugin(asset::AssetsPlugin);
