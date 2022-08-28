@@ -1,0 +1,17 @@
+title = "09"
+
+[[spawn_scene]]
+t_sec = 0.1
+name = "test"
+
+[[dialogue]]
+mode = { WaitSeconds = 1.0 }
+name = "spindarella"
+text = "phew, glad that's over"
+
+[[dialogue]]
+mode = { WaitSeconds = 2.0 }
+name = "{ECHO}"
+text = "oh spindyyyyy, you didn't think that was it did you? hehehe"
+
+transition = { AppState = "Game" }

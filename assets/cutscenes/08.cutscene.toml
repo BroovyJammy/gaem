@@ -1,0 +1,52 @@
+title = "08"
+
+[[spawn_scene]]
+t_sec = 0.1
+name = "test"
+
+[[dialogue]]
+mode = { WaitSeconds = 3.0 }
+name = "silkarella"
+text = "Well, I think this is far enough in. I'm sorry spindy"
+
+[[dialogue]]
+mode = { WaitSeconds = 2.0 }
+name = "spindarella"
+text = "What's going on silky, are you feeling alright?"
+
+[[dialogue]]
+mode = { WaitSeconds = 5.0 }
+name = "silkarella"
+text = "We're far enough into the cavern that there is no chance for you to escape, so I can drop the pretense"
+
+[[dialogue]]
+mode = { WaitSeconds = 5.0 }
+name = "silkarella"
+text = "That 'gargantuan speciment' I mentioned earlier is actually me, and now I'm going to devour you for food"
+
+[[dialogue]]
+mode = { WaitSeconds = 3.0 }
+name = "spindarella"
+text = "Ugh. I was hoping you would give me more time to build up strength but I suppose this will have to do"
+
+[[dialogue]]
+mode = { WaitSeconds = 1.0 }
+name = "silkarella"
+text = "w-what"
+
+[[dialogue]]
+mode = { WaitSeconds = 4.0 }
+name = "spindarella"
+text = "I wasn't lying earlier when I said it was pure chance I came here, but it wasn't the whole truth."
+
+[[dialogue]]
+mode = { WaitSeconds = 4.0 }
+name = "spindarella"
+text = "I ended up here by chance, but I went down this cavern looking to hunt you down after hearing what you'd done."
+
+[[dialogue]]
+mode = { WaitSeconds = 2.0 }
+name = "silkarella"
+text = "*transforms into a giant mass of flesh with limbs sticking out*"
+
+transition = { AppState = "Game" }

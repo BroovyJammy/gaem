@@ -1,0 +1,37 @@
+title = "05"
+
+[[spawn_scene]]
+t_sec = 0.1
+name = "test"
+
+[[dialogue]]
+mode = { WaitSeconds = 2.0 }
+name = "spindarella"
+text = "So... how did you know my name?"
+
+[[dialogue]]
+mode = { WaitSeconds = 2.0 }
+name = "silkarella"
+text = "What do you mean? You told me it when we met"
+
+[[dialogue]]
+mode = { WaitSeconds = 2.0 }
+name = "spindarella"
+text = "Oh.. are you sure? I don't remember that"
+
+[[dialogue]]
+mode = { WaitSeconds = 3.0 }
+name = "silkarella"
+text = "Yeah of course. How else would I have know it?"
+
+[[dialogue]]
+mode = { WaitSeconds = 3.0 }
+name = "spindarella"
+text = "I suppose so yeah. What do you think of it, I chose it myself :D"
+
+[[dialogue]]
+mode = { WaitSeconds = 3.0 }
+name = "silkarella"
+text = "Oh its a wonderful name, fits you well spindy"
+
+transition = { AppState = "Game" }

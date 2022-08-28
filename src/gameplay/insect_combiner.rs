@@ -5,14 +5,13 @@ use rand::{rngs::StdRng, Rng, SeedableRng};
 
 use crate::{
     asset::BodyParts,
-    cutscene::CurrentCutscene,
     prelude::*,
     ui::{CombineButton, CombineNext, CombinePrev, CombineText, CombineWrapper},
 };
 
 use super::{
     insect_body::{InsectBody, InsectRenderEntities, UpdateBody},
-    Action, CurrentLevel, CurrentUnits, Levels, MoveCap, Team,
+    Action, CurrentUnits, MoveCap, Team,
 };
 
 /// Information about a playthrough of a level
@@ -223,8 +222,6 @@ pub fn confirm_combine_unit(
     mut current_units: ResMut<CurrentUnits>,
     level_gameplay_info: Res<LevelGameplayInfo>,
     stats: Res<BodyParts>,
-    levels: Res<Levels>,
-    mut current_level: ResMut<CurrentLevel>,
 ) {
     // Skip a frame to ignore the input that caused the transition to this scene
     if !**buffer {
@@ -261,15 +258,8 @@ pub fn confirm_combine_unit(
             }
         }
 
-        let level = &levels[current_level.0];
-        if let Some(cutscene) = &level.post_cutscene {
-            **buffer = false;
-            commands.insert_resource(CurrentCutscene::new(cutscene));
-            commands.insert_resource(NextState(AppState::PlayCutscene));
-            current_level.0 += 1;
-        } else {
-            debug!("finished level but there was no cutscene to move to");
-        }
+        **buffer = false;
+        commands.insert_resource(NextState(AppState::PlayCutscene));
     }
 }
 

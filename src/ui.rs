@@ -2,7 +2,11 @@ use bevy::ui::FocusPolicy;
 
 use crate::{
     asset::{BodyParts, UiAssets, UiScenes},
-    gameplay::{HoveredInsectPart, SelectedUnit, Squish, Turn},
+    cutscene::CurrentCutscene,
+    gameplay::{
+        insect_combiner::UnitToCombine, CurrentLevel, CurrentUnits, HoveredInsectPart,
+        SelectedUnit, Squish, Turn,
+    },
     prelude::*,
 };
 
@@ -140,11 +144,15 @@ fn setup_ui_blueprints(
 }
 
 fn setup_main_menu(
-    // mut commands: Commands,
+    mut commands: Commands,
     // mut export_event: EventWriter<SceneExportEvent>,
     ui_scenes: Res<UiScenes>,
     mut scene_spawner: ResMut<SceneSpawner>,
 ) {
+    commands.insert_resource(CurrentLevel(0));
+    commands.insert_resource(UnitToCombine(0));
+    commands.remove_resource::<CurrentUnits>();
+    commands.insert_resource(CurrentCutscene::new("00"));
     scene_spawner.spawn_dynamic(ui_scenes.main_menu.clone());
     /*
     export_event.send(SceneExportEvent {

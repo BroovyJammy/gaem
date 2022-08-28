@@ -1,0 +1,12 @@
+title = "10"
+
+[[spawn_scene]]
+t_sec = 0.1
+name = "test"
+
+[[dialogue]]
+mode = { WaitSeconds = 1.0 }
+name = "spindarella"
+text = "... im not going to jinx it"
+
+transition = { AppState = "MainMenu" }
