@@ -45,6 +45,7 @@ pub struct CutsceneMetaAsset {
 pub struct DialogueEntry {
     #[serde(default)]
     pub transition: DialogueNext,
+    #[serde(default)]
     pub mode: DialogueMode,
     pub name: String,
     pub text: String,
@@ -65,8 +66,10 @@ pub enum DialogueNext {
 }
 
 /// How to trigger the transition?
-#[derive(serde::Deserialize)]
+#[derive(Default, serde::Deserialize)]
 pub enum DialogueMode {
+    #[default]
+    WaitForever,
     WaitSeconds(f32),
 }
 
@@ -170,6 +173,7 @@ fn cutscene_driver(
     if let Some(dialogue_entry) = meta.dialogue.get(player.current_dialogue) {
         let mut transition = actioner.single().just_pressed(Action::Select);
         match dialogue_entry.mode {
+            DialogueMode::WaitForever => {}
             DialogueMode::WaitSeconds(secs) => {
                 if now > player.dialogue_start_time + secs {
                     transition = true;
