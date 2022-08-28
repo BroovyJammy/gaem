@@ -332,6 +332,7 @@ pub enum Action {
     Select,
     Unselect,
     EndTurn,
+    Confirm,
 }
 
 pub struct ReselectTile;
@@ -824,6 +825,9 @@ pub fn make_action_manager() -> InputManagerBundle<Action> {
             // we really need to not ship with this still existing
             .insert(GamepadButtonType::Select, Action::SkipLevel)
             .insert(KeyCode::Z, Action::SkipLevel)
+            .insert(KeyCode::Return, Action::Confirm)
+            .insert(KeyCode::Space, Action::Confirm)
+            .insert(GamepadButtonType::South, Action::Confirm)
             .build(),
     }
 }

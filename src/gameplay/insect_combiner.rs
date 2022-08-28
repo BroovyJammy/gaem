@@ -3,7 +3,12 @@
 use bevy::utils::StableHashMap;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
-use crate::{asset::BodyParts, cutscene::CurrentCutscene, prelude::*};
+use crate::{
+    asset::BodyParts,
+    cutscene::CurrentCutscene,
+    prelude::*,
+    ui::{CombineButton, CombineNext, CombinePrev, CombineText, CombineWrapper},
+};
 
 use super::{
     insect_body::{InsectBody, InsectRenderEntities, UpdateBody},
@@ -73,6 +78,7 @@ pub struct UnitToCombine(pub usize);
 pub fn setup_insect_combiner(
     mut commands: Commands<'_, '_>,
     current_units: Res<CurrentUnits>,
+    level_gameplay_info: Res<LevelGameplayInfo>,
     mut unit_to_combine: ResMut<UnitToCombine>,
     stats: Res<BodyParts>,
     mut camera: Query<&mut Transform, With<Camera>>,
@@ -82,7 +88,7 @@ pub fn setup_insect_combiner(
     camera_trans.translation.y = 0.;
 
     unit_to_combine.0 = 0;
-    super::spawn_insect(
+    let goodie = super::spawn_insect(
         &mut commands,
         IVec2::new(0, 0),
         current_units.0[0].clone(),
@@ -90,21 +96,53 @@ pub fn setup_insect_combiner(
         MoveCap(current_units.0[0].clone().max_move_cap(&stats)),
         default(),
     );
+    commands.entity(goodie).insert_bundle(TransformBundle {
+        // Why does this value have to be so large?
+        local: Transform::from_xyz(-200., 0., 0.),
+        ..default()
+    });
+
+    let body =
+        &level_gameplay_info.find_root_unsplit_insect_for(level_gameplay_info.last_killed.unwrap());
+    let baddie = super::spawn_insect(
+        &mut commands,
+        IVec2::new(0, 0),
+        body.clone(),
+        Team::Baddie,
+        MoveCap(body.max_move_cap(&stats)),
+        default(),
+    );
+    commands.entity(baddie).insert_bundle(TransformBundle {
+        local: Transform::from_xyz(200., 0., 0.),
+        ..default()
+    });
 }
 
 pub fn change_selected_unit(
     actioners: Query<&ActionState<Action>>,
+    prevs: Query<&Interaction, (With<CombinePrev>, Changed<Interaction>)>,
+    nexts: Query<&Interaction, (With<CombineNext>, Changed<Interaction>)>,
     mut unit_to_combine: ResMut<UnitToCombine>,
     current_units: Res<CurrentUnits>,
 ) {
     const MAX_UNITS: u8 = 4;
 
     let input = actioners.single();
-    if input.just_pressed(Action::MoveSelection) {
+    let prev = prevs
+        .get_single()
+        .map(|prev| *prev == Interaction::Clicked)
+        .unwrap_or(false);
+    let next = nexts
+        .get_single()
+        .map(|next| *next == Interaction::Clicked)
+        .unwrap_or(false);
+    if input.just_pressed(Action::MoveSelection) || prev || next {
         let movement = input
             .clamped_axis_pair(Action::MoveSelection)
             .unwrap() // no idea when this is None :shrug:
-            .x();
+            .x()
+            - prev as i32 as f32
+            + next as i32 as f32;
         let new_unit = if movement < 0. {
             let new_unit = unit_to_combine.0.checked_sub(1);
             match new_unit {
@@ -135,36 +173,52 @@ pub fn update_to_combine_unit_visuals(
     mut commands: Commands<'_, '_>,
     unit_to_combine: Res<UnitToCombine>,
     current_units: Res<CurrentUnits>,
-    mut body: Query<(Entity, &mut InsectBody, &mut InsectRenderEntities)>,
+    mut combine_texts: Query<&mut Text, With<CombineText>>,
+    mut body: Query<(Entity, &mut InsectBody, &mut InsectRenderEntities, &Team)>,
 ) {
     if !unit_to_combine.is_changed() {
         return;
     }
 
-    let (entity, mut cur_body, mut render_entities) = body.single_mut();
-    match current_units.0.get(unit_to_combine.0) {
-        None => {
-            let render_entities = &mut *render_entities;
-            for &entity in render_entities
-                .body_part
-                .values()
-                .chain(render_entities.hp_bar.values())
-            {
-                commands.entity(entity).despawn_recursive();
-            }
-            render_entities.body_part.clear();
-            render_entities.hp_bar.clear();
+    for (entity, mut cur_body, mut render_entities, team) in &mut body {
+        if let Team::Baddie = *team {
+            continue;
         }
-        Some(selected_body) => {
-            *cur_body = selected_body.clone();
-            commands.entity(entity).insert(UpdateBody);
+
+        let text = &mut combine_texts.single_mut().sections[0].value;
+
+        match current_units.0.get(unit_to_combine.0) {
+            None => {
+                *text = "ADD TO PARTY".to_string();
+                let render_entities = &mut *render_entities;
+                for &entity in render_entities
+                    .body_part
+                    .values()
+                    .chain(render_entities.hp_bar.values())
+                {
+                    commands.entity(entity).despawn_recursive();
+                }
+                render_entities.body_part.clear();
+                render_entities.hp_bar.clear();
+            }
+            Some(selected_body) => {
+                // This could be done way better :P
+                *text = "      COMBINE      ".to_string();
+                *cur_body = selected_body.clone();
+                commands.entity(entity).insert(UpdateBody);
+            }
         }
     }
 }
 
+#[derive(Default, Deref, DerefMut)]
+pub struct Buffer(bool);
+
 pub fn confirm_combine_unit(
     mut commands: Commands<'_, '_>,
+    mut buffer: Local<Buffer>,
     actioner: Query<&ActionState<Action>>,
+    combine_buttons: Query<&Interaction, (With<CombineButton>, Changed<Interaction>)>,
     unit_to_combine: Res<UnitToCombine>,
     mut current_units: ResMut<CurrentUnits>,
     level_gameplay_info: Res<LevelGameplayInfo>,
@@ -172,7 +226,22 @@ pub fn confirm_combine_unit(
     levels: Res<Levels>,
     mut current_level: ResMut<CurrentLevel>,
 ) {
-    if actioner.single().just_pressed(Action::Select) {
+    // Skip a frame to ignore the input that caused the transition to this scene
+    if !**buffer {
+        **buffer = true;
+        return;
+    }
+
+    if actioner.single().just_pressed(Action::Confirm)
+        || combine_buttons
+            .iter()
+            .any(|button| *button == Interaction::Clicked)
+    {
+        info!(
+            "Used keyboard/controller: {}",
+            actioner.single().just_pressed(Action::Confirm)
+        );
+
         let enemy_body = level_gameplay_info
             .find_root_unsplit_insect_for(level_gameplay_info.last_killed.unwrap());
         let blah = current_units.0.get_mut(unit_to_combine.0);
@@ -194,6 +263,7 @@ pub fn confirm_combine_unit(
 
         let level = &levels[current_level.0];
         if let Some(cutscene) = &level.post_cutscene {
+            **buffer = false;
             commands.insert_resource(CurrentCutscene::new(cutscene));
             commands.insert_resource(NextState(AppState::PlayCutscene));
             current_level.0 += 1;
@@ -205,7 +275,9 @@ pub fn confirm_combine_unit(
 
 pub fn cleanup_insect_combiner(
     mut commands: Commands<'_, '_>,
-    units: Query<Entity, With<InsectBody>>,
+    items: Query<Entity, Or<(With<InsectBody>, With<CombineWrapper>)>>,
 ) {
-    commands.entity(units.single()).despawn_recursive();
+    for item in &items {
+        commands.entity(item).despawn_recursive();
+    }
 }

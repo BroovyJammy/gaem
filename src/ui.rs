@@ -37,6 +37,7 @@ impl Plugin for UiPlugin {
         app.add_system(update_sidebar.run_in_state(AppState::Game));
         app.add_enter_system(AppState::Game, spawn_end_turn_button);
         app.add_system(handle_end_turn_button.run_in_state(Turn::input_goodie()));
+        app.add_enter_system(AppState::InsectCombiner, spawn_combine_ui);
     }
 }
 
@@ -426,4 +427,108 @@ fn handle_end_turn_button(
             commands.insert_resource(NextState(Turn::animate_goodie()));
         }
     }
+}
+
+#[derive(Component)]
+pub struct CombineWrapper;
+
+#[derive(Component)]
+pub struct CombinePrev;
+
+#[derive(Component)]
+pub struct CombineButton;
+
+#[derive(Component)]
+pub struct CombineText;
+
+#[derive(Component)]
+pub struct CombineNext;
+
+fn spawn_combine_ui(mut commands: Commands, assets: Res<UiAssets>) {
+    commands
+        .spawn_bundle(NodeBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                size: Size::new(Val::Percent(100.), Val::Percent(100.)),
+                ..default()
+            },
+            color: Color::NONE.into(),
+            ..default()
+        })
+        .insert(CombineWrapper)
+        .with_children(|parent| {
+            parent
+                .spawn_bundle(NodeBundle {
+                    color: Color::NONE.into(),
+                    ..default()
+                })
+                .with_children(|parent| {
+                    let button = ButtonBundle {
+                        style: Style {
+                            margin: UiRect::all(Val::Px(4.)),
+                            ..default()
+                        },
+                        color: Color::rgb(0.4, 0., 0.).into(),
+                        ..default()
+                    };
+
+                    parent
+                        .spawn_bundle(button.clone())
+                        .insert(CombinePrev)
+                        .with_children(|parent| {
+                            parent.spawn_bundle(TextBundle {
+                                text: Text::from_section(
+                                    "< PREV",
+                                    TextStyle {
+                                        font_size: 36.,
+                                        font: assets.font_bold.clone(),
+                                        ..default()
+                                    },
+                                ),
+                                focus_policy: FocusPolicy::Pass,
+                                ..default()
+                            });
+                        });
+
+                    parent
+                        .spawn_bundle(button.clone())
+                        .insert(CombineButton)
+                        .with_children(|parent| {
+                            parent
+                                .spawn_bundle(TextBundle {
+                                    text: Text::from_section(
+                                        "COMBINE",
+                                        TextStyle {
+                                            font_size: 36.,
+                                            font: assets.font_bold.clone(),
+                                            ..default()
+                                        },
+                                    ),
+                                    focus_policy: FocusPolicy::Pass,
+                                    ..default()
+                                })
+                                .insert(CombineText);
+                        });
+
+                    parent
+                        .spawn_bundle(button)
+                        .insert(CombineNext)
+                        .with_children(|parent| {
+                            parent.spawn_bundle(TextBundle {
+                                text: Text::from_section(
+                                    "NEXT >",
+                                    TextStyle {
+                                        font_size: 36.,
+                                        font: assets.font_bold.clone(),
+                                        ..default()
+                                    },
+                                ),
+                                focus_policy: FocusPolicy::Pass,
+                                ..default()
+                            });
+                        });
+                });
+        });
 }
