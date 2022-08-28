@@ -1,4 +1,7 @@
-use bevy::{render::camera::ScalingMode, utils::FloatOrd};
+use bevy::{
+    render::camera::ScalingMode,
+    utils::{FloatOrd, Instant},
+};
 
 use crate::{
     asset::{CutsceneAssets, UiScenes},

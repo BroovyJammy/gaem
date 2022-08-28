@@ -1,9 +1,9 @@
 ({
-    "cutscenes.meta": Folder (
-        path: "cutscenes/",
+    "cutscenes.meta": Files (
+        paths: ["cutscenes/01.cutscene.toml"],
     ),
-    "cutscenes.scenes": Folder (
-        path: "scene/cutscenes/",
+    "cutscenes.scenes": Files (
+        paths: ["scene/cutscenes/test.scn.ron"],
     ),
     "dating.spinderella": File (
         path: "image/dating/spinderella.png",

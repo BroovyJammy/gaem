@@ -1,9 +1,9 @@
 ({
-    "meta.bodyparts": Folder (
-        path: "bodyparts/",
+    "meta.bodyparts": Files (
+        paths: ["bodyparts/test.bodypart.toml"],
     ),
-    "meta.terrain": Folder (
-        path: "terrain/",
+    "meta.terrain": Files (
+        paths: ["terrain/test.terrain.toml"],
     ),
     "image.select": File (
         path: "image/tile/select.png",
