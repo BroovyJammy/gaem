@@ -105,6 +105,7 @@ struct CutscenePlayerState {
     next_scene_spawn: Option<usize>,
     dialogue_start_time: f32,
     active_scenes: HashMap<Handle<DynamicScene>, Option<f32>>,
+    needs_init: bool,
 }
 
 fn init_cutscene(
@@ -137,9 +138,11 @@ fn init_cutscene(
         current_dialogue: 0,
         dialogue_start_time: 0.0,
         active_scenes: Default::default(),
+        needs_init: true,
     };
 
     commands.insert_resource(player);
+    commands.insert_resource(CutsceneText(meta.dialogue[0].name.clone(), meta.dialogue[0].text.clone()));
 }
 
 fn cleanup_cutscene(
@@ -157,6 +160,7 @@ fn cutscene_driver(
     time: Res<Time>,
     mut commands: Commands,
     current: Res<CurrentCutscene>,
+    mut ctext: ResMut<CutsceneText>,
     assets: Res<Assets<CutsceneMetaAsset>>,
     mut player: ResMut<CutscenePlayerState>,
     mut scenespawner: ResMut<SceneSpawner>,
@@ -167,6 +171,20 @@ fn cutscene_driver(
     let meta = assets.get(current.handle.as_ref().unwrap()).unwrap();
 
     if let Some(dialogue_entry) = meta.dialogue.get(player.current_dialogue) {
+        if player.needs_init {
+            player.needs_init = false;
+            player.next_scene_spawn = meta.spawn_scene.iter()
+                .position(|entry| entry.spawn_on_dialogue == player.current_dialogue);
+
+            while let Some(spawn_scene) = player.next_scene_spawn.and_then(|i| meta.spawn_scene.get(i)) {
+                if spawn_scene.delay.is_none() {
+                    let handle = get_scene_by_name(&ass, &spawn_scene.name);
+                    player.next_scene_spawn = player.next_scene_spawn.map(|x| x + 1);
+                    player.active_scenes.insert(handle.clone(), spawn_scene.duration.map(|x| now + x));
+                    scenespawner.spawn_dynamic(handle);
+                }
+            }
+        }
         let mut transition = actioner.single().just_pressed(Action::Select);
         match dialogue_entry.mode {
             DialogueMode::WaitForever => {}
@@ -204,6 +222,9 @@ fn cutscene_driver(
                 }
             }
 
+            ctext.0 = meta.dialogue[player.current_dialogue].name.clone();
+            ctext.1 = meta.dialogue[player.current_dialogue].text.clone();
+
             player.next_scene_spawn = meta.spawn_scene.iter()
                 .position(|entry| entry.spawn_on_dialogue == player.current_dialogue);
 
@@ -237,6 +258,8 @@ fn cutscene_driver(
     }
 }
 
+struct CutsceneText(String, String);
+
 fn get_scene_by_name(ass: &AssetServer, name: &str) -> Handle<DynamicScene> {
     let path = format!("scene/cutscenes/{}.scn.ron", name);
     ass.load(&path)
@@ -266,26 +289,18 @@ struct DialogueBox;
 
 fn update_dialogue_box(
     mut commands: Commands,
-    player: Res<CutscenePlayerState>,
+    ctext: Res<CutsceneText>,
     q: Query<Entity, With<DialogueBox>>,
-    current: Res<CurrentCutscene>,
-    assets: Res<Assets<CutsceneMetaAsset>>,
     // FIXME: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
     mut frame: Local<usize>,
 ) {
     // FIXME: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
     *frame += 1;
-    if !(player.is_changed() || *frame == 2) {
+    if !(ctext.is_changed() || *frame == 2) {
         return;
     }
     if let Ok(e) = q.get_single() {
         commands.entity(e).despawn_descendants();
-        let meta = assets.get(current.handle.as_ref().unwrap()).unwrap();
-        let (name, text) = if let Some(entry) = meta.dialogue.get(player.current_dialogue) {
-            (entry.name.clone(), entry.text.clone())
-        } else {
-            return;
-        };
         let name = commands
             .spawn_bundle(NodeBundle {
                 color: UiColor(Color::DARK_GRAY),
@@ -301,7 +316,7 @@ fn update_dialogue_box(
                     ..Default::default()
                 })
                 .insert(TextProps {
-                    value: name,
+                    value: ctext.0.clone(),
                     purpose: TextPurpose::Heading,
                 });
             })
@@ -321,7 +336,7 @@ fn update_dialogue_box(
                 ..Default::default()
             })
             .with_children(|p| {
-                for word in text.split_ascii_whitespace() {
+                for word in ctext.1.split_ascii_whitespace() {
                     p.spawn_bundle(TextBundle {
                         ..Default::default()
                     })
