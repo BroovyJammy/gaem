@@ -227,7 +227,7 @@
       },
       {
         "gaem::ui::TextProps": (
-          value: "Welcome, Spinderella, to a dungeon of Monsters!",
+          value: "Welcome, Spindarella, to a dungeon of Monsters!",
           purpose: Heading,
         ),
       },

@@ -2,7 +2,7 @@ title = "00"
 
 [[spawn_scene]]
 spawn_on_dialogue = 0
-name = "test2"
+name = "test"
 
 [[dialogue]]
 name = "spindarella"

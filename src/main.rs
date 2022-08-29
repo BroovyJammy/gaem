@@ -11,7 +11,7 @@ mod prelude {
     pub use iyes_scene_tools::SceneBuilder;
     pub use leafwing_input_manager::prelude::*;
 
-    pub use std::time::{Duration, Instant};
+    pub use bevy::utils::{Duration, Instant};
 
     pub use crate::AppState;
     pub use crate::{despawn_with, remove_resource};
