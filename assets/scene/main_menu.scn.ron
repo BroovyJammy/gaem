@@ -22,10 +22,10 @@
           align_content: Center,
           justify_content: FlexStart,
           position: (
-            left: Percent(20.0),
-            right: Percent(20.0),
-            top: Percent(20.0),
-            bottom: Percent(20.0),
+            left: Percent(30.0),
+            right: Percent(30.0),
+            top: Percent(30.0),
+            bottom: Percent(30.0),
           ),
           margin: (
             left: Undefined,
