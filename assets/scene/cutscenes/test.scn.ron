@@ -1,6 +1,6 @@
 [
   (
-    entity: 18,
+    entity: 8,
     components: [
       {
         "bevy_transform::components::transform::Transform": (
@@ -39,7 +39,7 @@
     ],
   ),
   (
-    entity: 19,
+    entity: 9,
     components: [
       {
         "bevy_transform::components::transform::Transform": (
