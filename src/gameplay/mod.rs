@@ -1227,7 +1227,7 @@ fn attack(
 
                 for attacker_part in attacker_body.parts.iter() {
                     // Start starving gradually after 30 turns
-                    if **hunger as f32 * rng.gen::<f32>() > 30. {
+                    if **hunger as f32 * rng.gen::<f32>() > 30. && *attacker_team == Team::Goodie {
                         attacks.push((attacker, attacker_part.position, 1));
                     }
 
