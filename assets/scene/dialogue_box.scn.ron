@@ -71,9 +71,9 @@
       },
       {
         "bevy_ui::ui_node::UiColor": (Rgba(
-          red: 1.0,
-          green: 0.0,
-          blue: 0.0,
+          red: 0.2,
+          green: 0.3,
+          blue: 0.25,
           alpha: 1.0,
         )),
       },

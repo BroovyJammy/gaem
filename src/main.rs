@@ -53,8 +53,8 @@ fn main() {
         title: "Spindarella's Monsters".into(),
         present_mode: bevy::window::PresentMode::Fifo,
         resizable: true,
-        width: 800.0,
-        height: 600.0,
+        width: 1200.0,
+        height: 900.0,
         resize_constraints: bevy::window::WindowResizeConstraints {
             min_width: 800.0,
             min_height: 600.0,
@@ -72,7 +72,7 @@ fn main() {
         filter: "info,wgpu_core=warn,wgpu_hal=warn,gaem=info".into(),
         level: bevy::log::Level::INFO,
     });
-    app.insert_resource(ClearColor(Color::rgb(0.2, 0., 0.)));
+    app.insert_resource(ClearColor(Color::rgb(0.04, 0.05, 0.06)));
 
     // bevy
     app.add_plugins(DefaultPlugins);

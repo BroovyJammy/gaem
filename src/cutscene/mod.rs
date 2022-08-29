@@ -14,7 +14,7 @@ pub struct CutscenePlugin;
 
 impl Plugin for CutscenePlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(cutscene_driver.run_in_state(AppState::PlayCutscene));
+        app.add_system_to_stage("fuckstages", cutscene_driver.run_in_state(AppState::PlayCutscene));
         app.add_system(update_dialogue_box.run_in_state(AppState::PlayCutscene));
         app.add_enter_system(AppState::PlayCutscene, init_cutscene);
         app.add_enter_system(AppState::PlayCutscene, setup_dialogue_box);
@@ -147,6 +147,7 @@ fn init_cutscene(
     commands.insert_resource(CutsceneText(
         meta.dialogue[0].name.clone(),
         meta.dialogue[0].text.clone(),
+        false,
     ));
 }
 
@@ -187,6 +188,9 @@ fn cutscene_driver(
                 .next_scene_spawn
                 .and_then(|i| meta.spawn_scene.get(i))
             {
+                if spawn_scene.spawn_on_dialogue != player.current_dialogue {
+                    break;
+                }
                 if spawn_scene.delay.is_none() {
                     let handle = get_scene_by_name(&ass, &spawn_scene.name);
                     player.next_scene_spawn = player.next_scene_spawn.map(|x| x + 1);
@@ -213,9 +217,7 @@ fn cutscene_driver(
                     continue;
                 }
                 let handle = get_scene_by_name(&ass, &entry.name);
-                if player.active_scenes.remove(&handle).is_some() {
-                    scenespawner.despawn(handle);
-                }
+                scenespawner.despawn(handle);
             }
 
             match &dialogue_entry.transition {
@@ -236,6 +238,7 @@ fn cutscene_driver(
 
             ctext.0 = meta.dialogue[player.current_dialogue].name.clone();
             ctext.1 = meta.dialogue[player.current_dialogue].text.clone();
+            ctext.2 = false;
 
             player.next_scene_spawn = meta
                 .spawn_scene
@@ -283,7 +286,7 @@ fn cutscene_driver(
     }
 }
 
-struct CutsceneText(String, String);
+struct CutsceneText(String, String, bool);
 
 fn get_scene_by_name(ass: &AssetServer, name: &str) -> Handle<DynamicScene> {
     let path = format!("scene/cutscenes/{}.scn.ron", name);
@@ -314,21 +317,18 @@ struct DialogueBox;
 
 fn update_dialogue_box(
     mut commands: Commands,
-    ctext: Res<CutsceneText>,
+    mut ctext: ResMut<CutsceneText>,
     q: Query<Entity, With<DialogueBox>>,
-    // FIXME: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-    mut frame: Local<usize>,
 ) {
-    // FIXME: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-    *frame += 1;
-    if !(ctext.is_changed() || *frame == 2) {
+    if ctext.2 {
         return;
     }
     if let Ok(e) = q.get_single() {
+        ctext.2 = true;
         commands.entity(e).despawn_descendants();
         let name = commands
             .spawn_bundle(NodeBundle {
-                color: UiColor(Color::DARK_GRAY),
+                color: UiColor(Color::rgb(0.11, 0.13, 0.12)),
                 style: Style {
                     flex_wrap: FlexWrap::Wrap,
                     margin: UiRect::all(Val::Px(8.0)),
@@ -348,7 +348,7 @@ fn update_dialogue_box(
             .id();
         let text = commands
             .spawn_bundle(NodeBundle {
-                color: UiColor(Color::DARK_GRAY),
+                color: UiColor(Color::rgb(0.11, 0.13, 0.12)),
                 style: Style {
                     flex_direction: FlexDirection::Row,
                     align_content: AlignContent::FlexStart,
@@ -381,11 +381,11 @@ fn camera_projection_enter(
     mut q: Query<&mut OrthographicProjection>,
 ) {
     let mut proj = q.single_mut();
-    proj.scaling_mode = ScalingMode::None;
-    proj.left = -400.;
-    proj.right = 400.;
-    proj.top = 300.;
-    proj.bottom = -300.;
+    proj.scaling_mode = ScalingMode::Auto { min_height: 600.0, min_width: 800.0 };
+    // proj.left = -400.;
+    // proj.right = 400.;
+    // proj.top = 300.;
+    // proj.bottom = -300.;
 }
 
 fn camera_projection_exit(

@@ -5,10 +5,6 @@ spawn_on_dialogue = 0
 name = "test"
 
 [[dialogue]]
-name = ""
-text = ""
-
-[[dialogue]]
 name = "silkarella"
 text = "Well, I think this is far enough in. I'm sorry spindy"
 

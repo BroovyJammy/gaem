@@ -22,9 +22,9 @@
           align_content: Center,
           justify_content: FlexStart,
           position: (
-            left: Percent(30.0),
-            right: Percent(30.0),
-            top: Percent(30.0),
+            left: Percent(20.0),
+            right: Percent(20.0),
+            top: Percent(40.0),
             bottom: Percent(30.0),
           ),
           margin: (
@@ -71,9 +71,9 @@
       },
       {
         "bevy_ui::ui_node::UiColor": (Rgba(
-          red: 1.0,
-          green: 0.0,
-          blue: 0.0,
+          red: 0.2,
+          green: 0.25,
+          blue: 0.2,
           alpha: 1.0,
         )),
       },
@@ -157,9 +157,9 @@
       },
       {
         "bevy_ui::ui_node::UiColor": (Rgba(
-          red: 1.0,
-          green: 0.27,
-          blue: 0.0,
+          red: 0.15,
+          green: 0.2,
+          blue: 0.15,
           alpha: 1.0,
         )),
       },
@@ -227,7 +227,7 @@
       },
       {
         "gaem::ui::TextProps": (
-          value: "This is … GæM!",
+          value: "Welcome, Spinderella, to a dungeon of Monsters!",
           purpose: Heading,
         ),
       },
@@ -311,30 +311,30 @@
       },
       {
         "bevy_ui::ui_node::UiColor": (Rgba(
-          red: 0.5,
-          green: 0.5,
-          blue: 0.5,
+          red: 0.1,
+          green: 0.15,
+          blue: 0.1,
           alpha: 1.0,
         )),
       },
       {
         "gaem::ui::InteractColors": (
           disabled: Rgba(
-            red: 0.6,
-            green: 0.6,
-            blue: 0.6,
+            red: 0.1,
+            green: 0.15,
+            blue: 0.1,
             alpha: 1.0,
           ),
           inactive: Rgba(
-            red: 0.5,
-            green: 0.5,
-            blue: 0.5,
+            red: 0.1,
+            green: 0.15,
+            blue: 0.1,
             alpha: 1.0,
           ),
           hover: Rgba(
-            red: 0.4,
-            green: 0.4,
-            blue: 0.4,
+            red: 0.1,
+            green: 0.12,
+            blue: 0.1,
             alpha: 1.0,
           ),
         ),
@@ -411,7 +411,7 @@
       },
       {
         "gaem::ui::TextProps": (
-          value: "Plei GæM!",
+          value: "Enter the Dungeon!",
           purpose: Heading,
         ),
       },
@@ -495,30 +495,30 @@
       },
       {
         "bevy_ui::ui_node::UiColor": (Rgba(
-          red: 0.5,
-          green: 0.5,
-          blue: 0.5,
+          red: 0.1,
+          green: 0.15,
+          blue: 0.1,
           alpha: 1.0,
         )),
       },
       {
         "gaem::ui::InteractColors": (
           disabled: Rgba(
-            red: 0.6,
-            green: 0.6,
-            blue: 0.6,
+            red: 0.1,
+            green: 0.15,
+            blue: 0.1,
             alpha: 1.0,
           ),
           inactive: Rgba(
-            red: 0.5,
-            green: 0.5,
-            blue: 0.5,
+            red: 0.1,
+            green: 0.15,
+            blue: 0.1,
             alpha: 1.0,
           ),
           hover: Rgba(
-            red: 0.4,
-            green: 0.4,
-            blue: 0.4,
+            red: 0.1,
+            green: 0.12,
+            blue: 0.1,
             alpha: 1.0,
           ),
         ),
@@ -593,7 +593,7 @@
       },
       {
         "gaem::ui::TextProps": (
-          value: "Eggsit GæM!",
+          value: "GET OUT",
           purpose: Heading,
         ),
       },

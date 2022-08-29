@@ -15,7 +15,11 @@
         ],
     ),
     "cutscenes.scenes": Files (
-        paths: ["scene/cutscenes/test.scn.ron"],
+        paths: [
+            "scene/cutscenes/test.scn.ron",
+            "scene/cutscenes/test2.scn.ron",
+            "scene/cutscenes/test3.scn.ron",
+        ],
     ),
     "dating.spinderella": File (
         path: "image/dating/spinderella.png",
