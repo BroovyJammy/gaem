@@ -193,7 +193,7 @@ fn main() {
                 UVec2::new(27, 12),
                 UVec2::new(37, 12),
             ],
-            enemy_spawn_points: vec![(UVec2::new(42, 42), 3), (UVec2::new(22, 42), 3)],
+            enemy_spawn_points: vec![(UVec2::new(37, 35), 3), (UVec2::new(22, 35), 3)],
         },
         gameplay::Level {
             size_x: 52,
@@ -217,7 +217,7 @@ fn main() {
                 UVec2::new(27, 12),
                 UVec2::new(37, 12),
             ],
-            enemy_spawn_points: vec![(UVec2::new(16, 26), 4), (UVec2::new(36, 26), 4)],
+            enemy_spawn_points: vec![(UVec2::new(20, 40), 4), (UVec2::new(40, 40), 4)],
         },
     ]));
 
