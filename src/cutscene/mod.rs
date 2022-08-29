@@ -129,8 +129,10 @@ fn init_cutscene(
 
     // sort scene spawn/despawn events by time and then by dialogue index
     let meta = assets.get_mut(current.handle.as_ref().unwrap()).unwrap();
-    meta.spawn_scene.sort_by_key(|entry| entry.delay.map(|x| FloatOrd(x)));
-    meta.spawn_scene.sort_by_key(|entry| entry.spawn_on_dialogue);
+    meta.spawn_scene
+        .sort_by_key(|entry| entry.delay.map(|x| FloatOrd(x)));
+    meta.spawn_scene
+        .sort_by_key(|entry| entry.spawn_on_dialogue);
 
     let player = CutscenePlayerState {
         start: time.startup() + time.time_since_startup(),
@@ -142,7 +144,10 @@ fn init_cutscene(
     };
 
     commands.insert_resource(player);
-    commands.insert_resource(CutsceneText(meta.dialogue[0].name.clone(), meta.dialogue[0].text.clone()));
+    commands.insert_resource(CutsceneText(
+        meta.dialogue[0].name.clone(),
+        meta.dialogue[0].text.clone(),
+    ));
 }
 
 fn cleanup_cutscene(
@@ -173,14 +178,21 @@ fn cutscene_driver(
     if let Some(dialogue_entry) = meta.dialogue.get(player.current_dialogue) {
         if player.needs_init {
             player.needs_init = false;
-            player.next_scene_spawn = meta.spawn_scene.iter()
+            player.next_scene_spawn = meta
+                .spawn_scene
+                .iter()
                 .position(|entry| entry.spawn_on_dialogue == player.current_dialogue);
 
-            while let Some(spawn_scene) = player.next_scene_spawn.and_then(|i| meta.spawn_scene.get(i)) {
+            while let Some(spawn_scene) = player
+                .next_scene_spawn
+                .and_then(|i| meta.spawn_scene.get(i))
+            {
                 if spawn_scene.delay.is_none() {
                     let handle = get_scene_by_name(&ass, &spawn_scene.name);
                     player.next_scene_spawn = player.next_scene_spawn.map(|x| x + 1);
-                    player.active_scenes.insert(handle.clone(), spawn_scene.duration.map(|x| now + x));
+                    player
+                        .active_scenes
+                        .insert(handle.clone(), spawn_scene.duration.map(|x| now + x));
                     scenespawner.spawn_dynamic(handle);
                 }
             }
@@ -225,25 +237,36 @@ fn cutscene_driver(
             ctext.0 = meta.dialogue[player.current_dialogue].name.clone();
             ctext.1 = meta.dialogue[player.current_dialogue].text.clone();
 
-            player.next_scene_spawn = meta.spawn_scene.iter()
+            player.next_scene_spawn = meta
+                .spawn_scene
+                .iter()
                 .position(|entry| entry.spawn_on_dialogue == player.current_dialogue);
 
-            while let Some(spawn_scene) = player.next_scene_spawn.and_then(|i| meta.spawn_scene.get(i)) {
+            while let Some(spawn_scene) = player
+                .next_scene_spawn
+                .and_then(|i| meta.spawn_scene.get(i))
+            {
                 if spawn_scene.delay.is_none() {
                     let handle = get_scene_by_name(&ass, &spawn_scene.name);
                     player.next_scene_spawn = player.next_scene_spawn.map(|x| x + 1);
-                    player.active_scenes.insert(handle.clone(), spawn_scene.duration.map(|x| now + x));
+                    player
+                        .active_scenes
+                        .insert(handle.clone(), spawn_scene.duration.map(|x| now + x));
                     scenespawner.spawn_dynamic(handle);
                 }
             }
         }
     }
 
-    player.active_scenes
+    player
+        .active_scenes
         .drain_filter(|_, end| end.map(|x| now > x).unwrap_or(false))
         .for_each(|(handle, _)| scenespawner.despawn(handle));
 
-    while let Some(spawn_scene) = player.next_scene_spawn.and_then(|i| meta.spawn_scene.get(i)) {
+    while let Some(spawn_scene) = player
+        .next_scene_spawn
+        .and_then(|i| meta.spawn_scene.get(i))
+    {
         if spawn_scene.spawn_on_dialogue != player.current_dialogue {
             break;
         }
@@ -251,7 +274,9 @@ fn cutscene_driver(
             if now > player.dialogue_start_time + delay {
                 let handle = get_scene_by_name(&ass, &spawn_scene.name);
                 player.next_scene_spawn = player.next_scene_spawn.map(|x| x + 1);
-                player.active_scenes.insert(handle.clone(), spawn_scene.duration.map(|x| now + x));
+                player
+                    .active_scenes
+                    .insert(handle.clone(), spawn_scene.duration.map(|x| now + x));
                 scenespawner.spawn_dynamic(handle);
             }
         }

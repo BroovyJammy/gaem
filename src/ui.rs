@@ -108,7 +108,7 @@ impl TextPurpose {
             TextPurpose::Dialogue => TextStyle {
                 color: Color::ALICE_BLUE,
                 font: uiass.font_regular.clone(),
-                font_size: 12.0,
+                font_size: 24.0,
             },
             TextPurpose::Notification => TextStyle {
                 color: Color::ALICE_BLUE,
