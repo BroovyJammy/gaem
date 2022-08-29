@@ -178,6 +178,8 @@ impl Plugin for GameplayPlugin {
                     .after("update_cursor_pos"),
             );
 
+            app.add_system(camera_pan.run_in_state(AppState::Game));
+
         app.add_system(
             end_turn
                 .run_in_state(AppState::Game)
@@ -827,12 +829,45 @@ pub fn make_action_manager() -> InputManagerBundle<Action> {
             .insert(GamepadButtonType::Select, Action::EndTurn)
             .insert(GamepadButtonType::North, Action::EndTurn)
             // we really need to not ship with this still existing
-            .insert(GamepadButtonType::Select, Action::SkipLevel)
-            .insert(KeyCode::Z, Action::SkipLevel)
+            // .insert(GamepadButtonType::Select, Action::SkipLevel)
+            // .insert(KeyCode::Z, Action::SkipLevel)
             .insert(KeyCode::Return, Action::Confirm)
             .insert(KeyCode::Space, Action::Confirm)
             .insert(GamepadButtonType::South, Action::Confirm)
             .build(),
+    }
+}
+
+pub fn camera_pan(
+    time: Res<Time>,
+    wnds: Res<Windows>,
+    mut camera: Query<&mut Transform, With<Camera>>,
+    mut pan: Local<Vec2>,
+) {
+    let wnd = wnds.primary();
+    if let Some(cursor) = wnd.cursor_position() {
+        let pan_rate = 420.0;
+        let margin = 20.0;
+        let w = wnd.width();
+        let h = wnd.height();
+        if cursor.x <= margin {
+            pan.x = -pan_rate;
+        } else if cursor.x >= w - margin {
+            pan.x = pan_rate;
+        } else {
+            pan.x = 0.0;
+        }
+        if cursor.y <= margin {
+            pan.y = -pan_rate;
+        } else if cursor.y >= h - margin {
+            pan.y = pan_rate;
+        } else {
+            pan.y = 0.0;
+        }
+    }
+    if *pan != Vec2::ZERO {
+        let mut camera_trans = camera.single_mut();
+        camera_trans.translation += pan.extend(0.0) * time.delta_seconds();
     }
 }
 
