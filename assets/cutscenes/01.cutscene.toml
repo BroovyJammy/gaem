@@ -6,6 +6,10 @@ spawn_on_dialogue = 0
 despawn_on_dialogue = 6
 
 [[dialogue]]
+name = ""
+text = ""
+
+[[dialogue]]
 name = "spindarella"
 text = ",,,pretty,,"
 

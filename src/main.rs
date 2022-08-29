@@ -205,7 +205,7 @@ fn main() {
                 UVec2::new(27, 12),
                 UVec2::new(37, 12),
             ],
-            enemy_spawn_points: vec![(UVec2::new(26, 26), 6)],
+            enemy_spawn_points: vec![(UVec2::new(26, 26), 5)],
         },
         gameplay::Level {
             size_x: 68,

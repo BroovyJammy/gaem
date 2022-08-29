@@ -5,6 +5,10 @@ spawn_on_dialogue = 0
 name = "test"
 
 [[dialogue]]
+name = ""
+text = ""
+
+[[dialogue]]
 name = "spindarella"
 text = "What's wrong, you've been kind of off since you asked why I came here"
 
