@@ -50,7 +50,7 @@ fn main() {
 
     // general configuration
     app.insert_resource(WindowDescriptor {
-        title: "BroovyJammy GÆM™ [PRE-ALPHA]".into(),
+        title: "Spindarella's Monsters".into(),
         present_mode: bevy::window::PresentMode::Fifo,
         resizable: true,
         width: 800.0,
