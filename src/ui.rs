@@ -21,6 +21,7 @@ impl Plugin for UiPlugin {
             setup_ui_blueprints.run_not_in_state(AppState::AssetsLoading),
         );
         app.add_system(butts_visuals);
+        app.add_system(butts_sounds);
         // workaround until we figure out how these things are supposed to be in bevy
         app.register_type::<smallvec::SmallVec<[bevy::ecs::entity::Entity; 8]>>();
         // app.register_type::<Vec<TextSection>>();
@@ -190,13 +191,28 @@ fn butts_visuals(
     }
 }
 
-fn butts_interaction<B: Component + Clone>(
+fn butts_sounds(
     mut squishes: EventWriter<Squish>,
+    mut q: Query<
+        &Interaction,
+        (Changed<Interaction>, With<Button>),
+    >,
+) {
+    for interaction in q.iter() {
+        if let Interaction::Clicked = interaction {
+            squishes.send(Squish::Long);
+        }
+        if let Interaction::Hovered = interaction {
+            squishes.send(Squish::Short);
+        }
+    }
+}
+
+fn butts_interaction<B: Component + Clone>(
     q: Query<(&Interaction, &B), (Changed<Interaction>, With<Button>)>,
 ) -> Option<B> {
     for (interaction, b) in q.iter() {
         if let Interaction::Clicked = interaction {
-            squishes.send(Squish);
             return Some(b.clone());
         }
     }
@@ -430,7 +446,7 @@ fn handle_end_turn_button(
 ) {
     for button in &buttons {
         if let Interaction::Clicked = button {
-            squishes.send(Squish);
+            squishes.send(Squish::Long);
             commands.remove_resource::<SelectedUnit>();
             commands.insert_resource(NextState(Turn::animate_goodie()));
         }

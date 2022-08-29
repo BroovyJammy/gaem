@@ -1,0 +1,29 @@
+({
+    "sound.music.menu": File (
+        path: "sound/music/Music_V1.ogg",
+    ),
+    "sound.music.game": File (
+        path: "sound/music/Music_Looping.ogg",
+    ),
+    "sound.music.cutscene": File (
+        path: "sound/music/CutsceneMusic_Looping.ogg",
+    ),
+    "sound.ui_1": File (
+        path: "sound/effect/UI_Click_1.ogg",
+    ),
+    "sound.ui_2": File (
+        path: "sound/effect/UI_Click_2.ogg",
+    ),
+    "sound.ui_3": File (
+        path: "sound/effect/UI_Click_3.ogg",
+    ),
+    "sound.squish_1": File (
+        path: "sound/effect/GrossSound1.ogg",
+    ),
+    "sound.squish_2": File (
+        path: "sound/effect/GrossSound2.ogg",
+    ),
+    "sound.squish_3": File (
+        path: "sound/effect/GrossSound3.ogg",
+    ),
+})

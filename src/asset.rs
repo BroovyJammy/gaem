@@ -26,6 +26,7 @@ impl Plugin for AssetsPlugin {
                     // put cutscene-related things here
                     // (images, metadata, scenes, etc)
                     "cutscene.assets",
+                    "audio.assets",
                 ])
                 .with_collection::<UiAssets>()
                 .with_collection::<UiScenes>()
@@ -89,14 +90,24 @@ pub struct UiScenes {
 
 #[derive(AssetCollection)]
 pub struct AudioAssets {
-    #[asset(key = "sound.music")]
-    pub music: Handle<AudioSource>,
+    #[asset(key = "sound.music.game")]
+    pub music_game: Handle<AudioSource>,
+    #[asset(key = "sound.music.menu")]
+    pub music_menu: Handle<AudioSource>,
+    #[asset(key = "sound.music.cutscene")]
+    pub music_cutscene: Handle<AudioSource>,
     #[asset(key = "sound.squish_1")]
     pub squish_1: Handle<AudioSource>,
     #[asset(key = "sound.squish_2")]
     pub squish_2: Handle<AudioSource>,
     #[asset(key = "sound.squish_3")]
     pub squish_3: Handle<AudioSource>,
+    #[asset(key = "sound.ui_1")]
+    pub ui_1: Handle<AudioSource>,
+    #[asset(key = "sound.ui_2")]
+    pub ui_2: Handle<AudioSource>,
+    #[asset(key = "sound.ui_3")]
+    pub ui_3: Handle<AudioSource>,
 }
 
 /// This will be available as a resource

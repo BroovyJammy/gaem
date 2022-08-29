@@ -223,9 +223,12 @@ impl Plugin for GameplayPlugin {
                 .run_if_resource_removed::<SelectedUnit>(),
         );
 
-        app.add_enter_system(AppState::MainMenu, play_music)
-            .add_event::<Squish>()
-            .add_system(squish.run_not_in_state(AppState::AssetsLoading));
+        app.add_audio_channel::<Music>();
+        app.add_enter_system(AppState::MainMenu, play_menu_music);
+        app.add_enter_system(AppState::Game, play_game_music);
+        app.add_enter_system(AppState::PlayCutscene, play_cutscene_music);
+        app.add_event::<Squish>();
+        app.add_system(squish.run_not_in_state(AppState::AssetsLoading));
     }
 }
 
@@ -514,7 +517,7 @@ fn handle_select_action(
         if body.contains_tile(*pos, cursor_pos.pos) {
             match team {
                 Team::Goodie => {
-                    squishes.send(Squish);
+                    squishes.send(Squish::Short);
                     commands.insert_resource(SelectedUnit {
                         unit,
                         at_local_pos: (cursor_pos.pos - pos.0).as_uvec2(),
@@ -550,7 +553,7 @@ fn handle_select_action(
             && move_unit_to.y >= 0
             && moveable_to_tiles.contains(&move_unit_to.as_uvec2())
         {
-            squishes.send(Squish);
+            squishes.send(Squish::Short);
             let ghost_entity = cursor_ghost.single();
             commands.entity(ghost_entity).remove::<CursorGhost>();
             commands
@@ -613,7 +616,7 @@ fn move_units(
         let (_, mut path) = positions.get_mut(move_to.0).unwrap();
         match path.0.pop() {
             None => {
-                squishes.send(Squish);
+                squishes.send(Squish::Long);
                 commands.entity(unit_id).remove::<MoveTo>();
                 commands.entity(move_to.0).despawn_recursive();
             }
@@ -1413,26 +1416,65 @@ fn update_hovered_insect_part(
     });
 }
 
-#[derive(Default, Deref, DerefMut)]
-struct HasPlayedMusic(bool);
+struct Music;
 
-fn play_music(mut has_played: Local<HasPlayedMusic>, assets: Res<AudioAssets>, audio: Res<Audio>) {
-    if !**has_played {
-        audio.play(assets.music.clone()).looped();
-        **has_played = true;
-    }
+fn play_game_music(
+    assets: Res<AudioAssets>,
+    audio: Res<AudioChannel<Music>>)
+{
+    audio.stop().fade_out(AudioTween::linear(Duration::from_secs(1)));
+    audio.play(assets.music_game.clone())
+        .looped()
+        .with_volume(0.5)
+        .fade_in(AudioTween::linear(Duration::from_secs(3)));
+}
+fn play_cutscene_music(
+    assets: Res<AudioAssets>,
+    audio: Res<AudioChannel<Music>>)
+{
+    audio.stop().fade_out(AudioTween::linear(Duration::from_secs(1)));
+    audio.play(assets.music_cutscene.clone())
+        .looped()
+        .with_volume(0.25)
+        .fade_in(AudioTween::linear(Duration::from_secs(3)));
+}
+fn play_menu_music(
+    assets: Res<AudioAssets>,
+    audio: Res<AudioChannel<Music>>)
+{
+    audio.stop().fade_out(AudioTween::linear(Duration::from_secs(1)));
+    audio.play(assets.music_menu.clone())
+        .looped()
+        .with_volume(0.75)
+        .fade_in(AudioTween::linear(Duration::from_secs(3)));
 }
 
-pub struct Squish;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Squish {
+    Short,
+    Long,
+}
 
 // Makes a squish noise
-fn squish(squishes: EventReader<Squish>, assets: Res<AudioAssets>, audio: Res<Audio>) {
-    if !squishes.is_empty() {
-        audio.play(
-            (*[&assets.squish_1, &assets.squish_2, &assets.squish_3]
-                .choose(&mut thread_rng())
-                .unwrap())
-            .clone(),
-        );
+fn squish(mut squishes: EventReader<Squish>, assets: Res<AudioAssets>, audio: Res<Audio>) {
+    let squish = squishes.iter().cloned().max();
+    match squish {
+        None => {},
+        Some(Squish::Short) => {
+            audio.play(
+                (*[&assets.ui_1, &assets.ui_2, &assets.ui_3]
+                    .choose(&mut thread_rng())
+                    .unwrap())
+                .clone(),
+            );
+        }
+        Some(Squish::Long) => {
+            audio.play(
+                (*[&assets.squish_1, &assets.squish_2, &assets.squish_3]
+                    .choose(&mut thread_rng())
+                    .unwrap())
+                .clone(),
+            );
+        }
     }
 }

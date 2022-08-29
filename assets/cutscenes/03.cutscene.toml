@@ -2,6 +2,11 @@ title = "03"
 
 [[spawn_scene]]
 spawn_on_dialogue = 0
+despawn_on_dialogue = 1
+name = "test3"
+
+[[spawn_scene]]
+spawn_on_dialogue = 2
 name = "test"
 
 [[dialogue]]
